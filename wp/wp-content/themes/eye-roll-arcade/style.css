@@ -1,0 +1,222 @@
+/*
+Theme Name: Eye Roll Arcade
+Theme URI: https://apparelishoweyeroll.com
+Author: Apparel is How Eye Roll
+Description: Retro 90s arcade-carpet theme for Apparel is How Eye Roll. Deep purple, neon pink/cyan/yellow, chunky display type. Built for ServerlessWP.
+Version: 1.0.0
+License: GPL v3 or later
+Text Domain: eye-roll-arcade
+*/
+
+:root{
+  --bg:#140826;
+  --bg-2:#1d0b38;
+  --card:#200e42;
+  --pink:#ff2e88;
+  --cyan:#00e5ff;
+  --yellow:#ffe600;
+  --purple:#8b3dff;
+  --teal:#00ffa3;
+  --ink:#f6f1ff;
+  --muted:#c4b5f0;
+  --black:#0a0416;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Space Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:17px;
+  line-height:1.55;
+  overflow-x:hidden;
+}
+/* Arcade carpet pattern layer */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background:
+    radial-gradient(circle at 12% 22%, rgba(255,46,136,.20) 0 6px, transparent 7px),
+    radial-gradient(circle at 82% 12%, rgba(0,229,255,.18) 0 5px, transparent 6px),
+    radial-gradient(circle at 68% 78%, rgba(255,230,0,.14) 0 6px, transparent 7px),
+    radial-gradient(circle at 28% 86%, rgba(0,255,163,.12) 0 5px, transparent 6px),
+    radial-gradient(circle at 45% 45%, rgba(139,61,255,.16) 0 4px, transparent 5px),
+    repeating-linear-gradient(45deg, rgba(139,61,255,.05) 0 14px, transparent 14px 28px),
+    repeating-linear-gradient(-45deg, rgba(0,229,255,.04) 0 14px, transparent 14px 28px),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 55%, var(--bg) 100%);
+  background-size:340px 340px,420px 420px,380px 380px,300px 300px,260px 260px,56px 56px,56px 56px,100% 100%;
+}
+a{color:var(--cyan)}
+img{max-width:100%;height:auto;display:block}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+/* Sale bar */
+.sale-bar{
+  background:var(--yellow);
+  color:var(--black);
+  font-family:"Bungee",cursive;
+  font-size:.82rem;
+  letter-spacing:.04em;
+  text-align:center;
+  padding:9px 14px;
+  border-bottom:3px solid var(--black);
+}
+.sale-bar strong{color:#c4006b}
+
+/* Header */
+.site-header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(16,5,34,.92);
+  backdrop-filter:blur(8px);
+  border-bottom:2px solid var(--purple);
+  box-shadow:0 2px 24px rgba(139,61,255,.35);
+}
+.header-in{display:flex;align-items:center;gap:16px;padding:10px 0}
+.brand{display:flex;align-items:center;gap:12px;text-decoration:none}
+.brand img{width:54px;height:54px;border-radius:50%;border:2px solid var(--cyan);box-shadow:0 0 14px rgba(0,229,255,.65)}
+.brand .brand-name{
+  font-family:"Bungee",cursive;
+  font-size:1.02rem;line-height:1.15;color:var(--ink);
+  text-shadow:2px 2px 0 var(--pink);
+}
+.main-nav{margin-left:auto}
+.main-nav ul{display:flex;gap:6px;list-style:none;margin:0;padding:0;flex-wrap:wrap}
+.main-nav a{
+  color:var(--ink);text-decoration:none;font-weight:700;text-transform:uppercase;
+  font-size:.82rem;letter-spacing:.06em;padding:8px 12px;border-radius:10px;
+  border:2px solid transparent;
+}
+.main-nav a:hover{border-color:var(--pink);color:#fff;box-shadow:0 0 12px rgba(255,46,136,.55);text-shadow:0 0 8px var(--pink)}
+
+/* Hero */
+.hero{padding:56px 0 30px}
+.hero-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:34px;align-items:center}
+.hero h1{
+  font-family:"Bungee",cursive;
+  font-size:clamp(2.3rem,6vw,4.3rem);
+  line-height:1.12;
+  margin:0 0 16px;
+  color:var(--yellow);
+  text-shadow:3px 3px 0 var(--pink), 6px 6px 0 rgba(0,229,255,.85), 0 0 34px rgba(255,230,0,.35);
+}
+.hero h1 .line2{color:#fff;text-shadow:3px 3px 0 var(--cyan), 6px 6px 0 rgba(255,46,136,.85), 0 0 34px rgba(0,229,255,.35)}
+.hero p.lede{font-size:1.16rem;color:var(--muted);max-width:34ch;margin:0 0 24px}
+.hero-badge{display:flex;justify-content:center}
+.hero-badge img{
+  width:min(300px,72vw);border-radius:50%;
+  border:4px solid var(--pink);
+  box-shadow:0 0 0 6px rgba(255,230,0,.9), 0 0 44px rgba(255,46,136,.75), 0 0 90px rgba(0,229,255,.4);
+  transform:rotate(3deg);
+}
+.btns{display:flex;gap:14px;flex-wrap:wrap}
+.btn{
+  display:inline-block;text-decoration:none;cursor:pointer;
+  font-family:"Bungee",cursive;font-size:.95rem;letter-spacing:.03em;
+  padding:14px 22px;border-radius:12px;border:3px solid var(--black);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.btn:hover{transform:translate(-2px,-2px)}
+.btn-pink{background:var(--pink);color:#fff;box-shadow:5px 5px 0 var(--cyan)}
+.btn-pink:hover{box-shadow:8px 8px 0 var(--cyan)}
+.btn-ghost{background:transparent;color:var(--cyan);border-color:var(--cyan);box-shadow:5px 5px 0 rgba(255,46,136,.8)}
+.btn-ghost:hover{box-shadow:8px 8px 0 rgba(255,46,136,.8)}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:26px}
+.chip{
+  font-weight:700;font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--black);padding:7px 13px;border-radius:999px;border:2px solid var(--black);
+  box-shadow:3px 3px 0 rgba(0,0,0,.55);text-decoration:none;
+}
+.chip:nth-child(4n+1){background:var(--cyan)}
+.chip:nth-child(4n+2){background:var(--yellow)}
+.chip:nth-child(4n+3){background:var(--teal)}
+.chip:nth-child(4n+4){background:#ff9de2}
+
+/* Sections */
+.section{padding:38px 0}
+.section h2{
+  font-family:"Bungee",cursive;font-size:clamp(1.5rem,3.6vw,2.2rem);
+  color:#fff;margin:0 0 6px;
+  text-shadow:2px 2px 0 var(--purple), 0 0 22px rgba(139,61,255,.6);
+}
+.section .sub{color:var(--muted);margin:0 0 24px}
+
+/* Product grid */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.card{
+  background:var(--card);
+  border:2px solid var(--purple);
+  border-radius:16px;overflow:hidden;
+  box-shadow:0 0 0 rgba(0,0,0,0);
+  transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  display:flex;flex-direction:column;
+}
+.card:hover{transform:translateY(-5px);border-color:var(--cyan);box-shadow:0 0 22px rgba(0,229,255,.45), 0 14px 30px rgba(0,0,0,.45)}
+.card img{aspect-ratio:1/1;object-fit:cover;width:100%}
+.card .card-in{padding:16px;display:flex;flex-direction:column;gap:10px;flex:1}
+.card h3{margin:0;font-size:1.02rem;line-height:1.35}
+.card .tag{align-self:flex-start;font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--black);background:var(--yellow);border-radius:6px;padding:3px 8px;border:2px solid var(--black)}
+.card .btn{margin-top:auto;text-align:center;font-size:.82rem;padding:11px 14px}
+
+/* About strip */
+.about-strip{
+  background:linear-gradient(90deg, rgba(255,46,136,.16), rgba(0,229,255,.12));
+  border:2px solid var(--pink);border-radius:18px;padding:26px;
+  box-shadow:0 0 26px rgba(255,46,136,.35);
+}
+.about-strip h2{margin-top:0}
+.about-strip p{color:var(--ink);max-width:68ch}
+
+/* Posts */
+.post-card{background:var(--card);border:2px solid var(--purple);border-radius:16px;padding:22px;margin-bottom:20px}
+.post-card h2,.post-card h3{margin-top:0}
+.post-card h2 a,.post-card h3 a{color:#fff;text-decoration:none}
+.post-card h2 a:hover,.post-card h3 a:hover{color:var(--yellow)}
+.meta{color:var(--muted);font-size:.85rem}
+.content-area{padding:40px 0 56px}
+.entry-content{max-width:72ch}
+.entry-content h1{font-family:"Bungee",cursive;line-height:1.2;color:#fff;text-shadow:2px 2px 0 var(--purple)}
+.pagination{display:flex;gap:10px;margin-top:24px}
+.pagination a{border:2px solid var(--cyan);border-radius:10px;padding:8px 14px;text-decoration:none;font-weight:700}
+
+/* Footer */
+.site-footer{border-top:2px solid var(--purple);background:rgba(12,4,26,.95);margin-top:30px}
+.footer-in{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:26px;padding:34px 0}
+.site-footer h4{font-family:"Bungee",cursive;color:var(--yellow);margin:0 0 12px;font-size:.95rem}
+.site-footer a{color:var(--muted);text-decoration:none}
+.site-footer a:hover{color:var(--cyan)}
+.site-footer ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.footer-brand{display:flex;gap:12px;align-items:flex-start}
+.footer-brand img{width:64px;height:64px;border-radius:50%;border:2px solid var(--pink);box-shadow:0 0 14px rgba(255,46,136,.6)}
+.colophon{border-top:1px solid rgba(139,61,255,.4);padding:14px 0;color:var(--muted);font-size:.85rem;text-align:center}
+
+/* WooCommerce basics */
+.woocommerce .button,.woocommerce a.button,.woocommerce button.button{
+  background:var(--pink)!important;color:#fff!important;border:3px solid var(--black)!important;
+  border-radius:12px!important;font-family:"Bungee",cursive;font-weight:400!important;
+  box-shadow:4px 4px 0 var(--cyan);
+}
+.woocommerce ul.products li.product{background:var(--card);border:2px solid var(--purple);border-radius:16px;padding:12px}
+.woocommerce ul.products li.product .price{color:var(--yellow);font-weight:700}
+
+/* Mobile */
+@media (max-width:860px){
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .footer-in{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .hero{padding:36px 0 18px}
+  .hero-grid{grid-template-columns:1fr}
+  .hero-badge{order:-1}
+  .hero-badge img{width:170px}
+  .hero h1{
+    font-size:2.15rem;line-height:1.22;
+    text-shadow:2px 2px 0 var(--pink), 0 0 18px rgba(255,230,0,.35);
+  }
+  .hero h1 .line2{text-shadow:2px 2px 0 var(--cyan), 0 0 18px rgba(0,229,255,.35)}
+  .grid{grid-template-columns:1fr}
+  .brand .brand-name{font-size:.86rem}
+  .main-nav a{padding:7px 9px;font-size:.76rem}
+}
