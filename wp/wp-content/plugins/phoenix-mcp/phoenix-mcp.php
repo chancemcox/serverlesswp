@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.0.0'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.1.0'),
             ));
 
         case 'ping':
@@ -248,6 +248,17 @@ function phoenix_mcp_tools()
                 'required' => array('id'),
             ),
             'callback'    => 'phoenix_mcp_tool_wc_update_product',
+        ),
+        'http_test' => array(
+            'description' => 'Test outbound HTTPS from this server (the same mechanism WooCommerce uses to deliver API keys to Printify). Returns status code, response time and any transport error.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'url'    => array('type' => 'string', 'description' => 'HTTPS URL to request. Default is the Printify API.'),
+                    'method' => array('type' => 'string', 'description' => 'GET or POST. Default POST.'),
+                ),
+            ),
+            'callback'    => 'phoenix_mcp_tool_http_test',
         ),
         'wc_list_orders' => array(
             'description' => 'List recent WooCommerce orders (newest first).',
@@ -479,6 +490,47 @@ function phoenix_mcp_tool_wc_list_orders($args)
         );
     }
     return $out;
+}
+
+function phoenix_mcp_tool_http_test($args)
+{
+    $url = isset($args['url']) ? esc_url_raw($args['url']) : 'https://api-prod.printify.com/v1/shops.json';
+    if (strpos($url, 'https://') !== 0) {
+        return new WP_Error('phoenix_mcp_bad_url', 'Only https:// URLs are allowed.');
+    }
+    $method = isset($args['method']) && strtoupper($args['method']) === 'GET' ? 'GET' : 'POST';
+
+    $request_args = array(
+        'timeout' => 20,
+        'method'  => $method,
+        'headers' => array('Content-Type' => 'application/json'),
+    );
+    if ($method === 'POST') {
+        $request_args['body'] = wp_json_encode(array('phoenix_test' => true));
+    }
+
+    $start    = microtime(true);
+    $response = wp_remote_request($url, $request_args);
+    $elapsed  = round(microtime(true) - $start, 2);
+
+    if (is_wp_error($response)) {
+        return array(
+            'url'          => $url,
+            'method'       => $method,
+            'ok'           => false,
+            'error'        => $response->get_error_message(),
+            'time_seconds' => $elapsed,
+        );
+    }
+
+    return array(
+        'url'           => $url,
+        'method'        => $method,
+        'ok'            => true,
+        'status_code'   => wp_remote_retrieve_response_code($response),
+        'time_seconds'  => $elapsed,
+        'body_snippet'  => substr(wp_remote_retrieve_body($response), 0, 200),
+    );
 }
 
 /* -------------------------------------------------------------------------
