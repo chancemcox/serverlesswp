@@ -58,7 +58,7 @@ $era_products = array(
       </div>
     </div>
     <div class="hero-badge">
-      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll badge logo">
+      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll badge logo" width="810" height="810" fetchpriority="high">
     </div>
   </div>
 </section>
@@ -70,7 +70,7 @@ $era_products = array(
     <div class="grid">
       <?php foreach ($era_products as $p) : ?>
       <article class="card">
-        <a href="<?php echo esc_url($p['url']); ?>"><img src="<?php echo esc_url($p['img']); ?>" alt="<?php echo esc_attr(wp_strip_all_tags($p['name'])); ?>" loading="lazy"></a>
+        <a href="<?php echo esc_url($p['url']); ?>"><img src="<?php echo esc_url($p['img']); ?>" alt="<?php echo esc_attr(wp_strip_all_tags($p['name'])); ?>" width="570" height="570" loading="lazy" decoding="async"></a>
         <div class="card-in">
           <span class="tag"><?php echo $p['tag']; ?></span>
           <h3><?php echo esc_html($p['name']); ?></h3>

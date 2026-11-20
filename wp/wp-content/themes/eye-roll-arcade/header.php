@@ -12,7 +12,7 @@
 <header class="site-header">
   <div class="wrap header-in">
     <a class="brand" href="<?php echo esc_url(home_url('/')); ?>">
-      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo">
+      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo" width="810" height="810">
       <span class="brand-name">APPAREL IS<br>HOW EYE ROLL</span>
     </a>
     <nav class="main-nav" aria-label="Primary">
