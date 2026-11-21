@@ -15,7 +15,7 @@ function era_setup() {
 add_action('after_setup_theme', 'era_setup');
 
 function era_assets() {
-    wp_enqueue_style('era-style', get_stylesheet_uri(), array(), '1.0.1');
+    wp_enqueue_style('era-style', get_stylesheet_uri(), array(), '1.0.2');
 }
 add_action('wp_enqueue_scripts', 'era_assets');
 
@@ -32,8 +32,19 @@ function era_fallback_menu() {
     echo '<li><a href="' . esc_url(home_url('/product-category/programmer-humor/')) . '">Programmer</a></li>';
     echo '<li><a href="' . esc_url(ERA_ETSY_SHOP) . '">Shop on Etsy</a></li>';
     echo '<li><a href="' . esc_url(home_url('/about/')) . '">About</a></li>';
+    echo '<li><a href="' . esc_url(home_url('/cart/')) . '">Cart</a></li>';
+    echo '<li><a href="' . esc_url(home_url('/my-account/')) . '">My Account</a></li>';
     echo '</ul>';
 }
+
+function era_menu_extra_items($items, $args) {
+    if (isset($args->theme_location) && $args->theme_location === 'primary') {
+        $items .= '<li><a href="' . esc_url(home_url('/cart/')) . '">Cart</a></li>';
+        $items .= '<li><a href="' . esc_url(home_url('/my-account/')) . '">My Account</a></li>';
+    }
+    return $items;
+}
+add_filter('wp_nav_menu_items', 'era_menu_extra_items', 10, 2);
 
 /* -------------------------------------------------------------------------
  * SEO: keyword-rich homepage title, per-context meta descriptions,
@@ -79,6 +90,15 @@ function era_meta_description() {
     if (is_singular('post')) {
         $excerpt = get_the_excerpt();
         if ($excerpt) { return era_trim_to_160($excerpt); }
+    }
+    if (is_page()) {
+        if (is_page('about')) {
+            return 'About Apparel is How Eye Roll: funny dad-joke shirts, programmer humor tees, 90s nostalgia gifts, desk mats and mugs, printed on demand and shipped worldwide.';
+        }
+        $excerpt = get_the_excerpt();
+        if ($excerpt) { return era_trim_to_160($excerpt); }
+        $content = get_post_field('post_content', get_the_ID());
+        if ($content) { return era_trim_to_160($content); }
     }
     return $default;
 }

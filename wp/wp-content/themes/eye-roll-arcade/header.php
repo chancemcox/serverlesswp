@@ -16,6 +16,8 @@
       <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo" width="600" height="600">
       <span class="brand-name">APPAREL IS<br>HOW EYE ROLL</span>
     </a>
+    <input type="checkbox" id="era-nav-toggle" class="nav-toggle" aria-hidden="true">
+    <label for="era-nav-toggle" class="nav-toggle-btn" aria-label="Toggle menu">&#9776;</label>
     <nav class="main-nav" aria-label="Primary">
       <?php wp_nav_menu(array('theme_location' => 'primary', 'container' => false, 'fallback_cb' => 'era_fallback_menu')); ?>
     </nav>

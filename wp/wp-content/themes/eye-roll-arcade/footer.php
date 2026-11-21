@@ -19,6 +19,18 @@
         <li><a href="<?php echo esc_url(home_url('/product-category/programmer-humor/')); ?>">Programmer humor</a></li>
         <li><a href="<?php echo esc_url(home_url('/product-category/child-of-the-90s/')); ?>">Child of the 90s</a></li>
         <li><a href="<?php echo esc_url(home_url('/#blog')); ?>">Blog</a></li>
+        <li><a href="<?php echo esc_url(home_url('/cart/')); ?>">Cart</a></li>
+        <li><a href="<?php echo esc_url(home_url('/my-account/')); ?>">My account</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>HELP</h4>
+      <ul>
+        <li><a href="<?php echo esc_url(home_url('/contact/')); ?>">Contact us</a></li>
+        <li><a href="<?php echo esc_url(home_url('/shipping-policy/')); ?>">Shipping policy</a></li>
+        <li><a href="<?php echo esc_url(home_url('/refund-policy/')); ?>">Refund &amp; returns</a></li>
+        <li><a href="<?php echo esc_url(home_url('/privacy-policy/')); ?>">Privacy policy</a></li>
+        <li><a href="<?php echo esc_url(home_url('/terms-and-conditions/')); ?>">Terms &amp; conditions</a></li>
       </ul>
     </div>
     <div>
