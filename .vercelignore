@@ -1,2 +1,4 @@
-# DEV BRANCH ONLY: facebook-for-woocommerce is intentionally INCLUDED in dev deployments for plugin testing.
-# Production (main) keeps its own .vercelignore excluding the plugin. Do not copy this file to main.
+# DEV BRANCH: mirrors production — facebook-for-woocommerce is EXCLUDED from deployments.
+# The 2026-11-21 dev test confirmed the plugin files hang this ServerlessWP runtime on dev too
+# (signed-in visit never finished loading). Do not include the plugin in deployments.
+wp/wp-content/plugins/facebook-for-woocommerce
