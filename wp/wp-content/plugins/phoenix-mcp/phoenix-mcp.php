@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.5
+ * Version: 1.3.6
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.5'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.6'),
             ));
 
         case 'ping':
@@ -427,6 +427,33 @@ function phoenix_mcp_tools()
                 ),
             ),
             'callback'    => 'phoenix_mcp_tool_http_test',
+        ),
+        'wc_list_coupons' => array(
+            'description' => 'List WooCommerce coupons, optionally filtered by an exact code.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'code'     => array('type' => 'string', 'description' => 'Optional exact coupon code to look up.'),
+                    'per_page' => array('type' => 'integer'),
+                ),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_list_coupons',
+        ),
+        'wc_create_coupon' => array(
+            'description' => 'Create a WooCommerce coupon. Fails if a coupon with the same code already exists. Shop-wide by default: no product/category restrictions and no minimum spend unless given.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'code'          => array('type' => 'string'),
+                    'discount_type' => array('type' => 'string', 'description' => 'percent, fixed_cart, or fixed_product. Default percent.'),
+                    'amount'        => array('type' => 'string', 'description' => 'Discount amount, e.g. "15" for 15%.'),
+                    'date_expires'  => array('type' => 'string', 'description' => 'Expiry in site timezone, format Y-m-d H:i:s, e.g. "2026-12-01 00:00:00". Omit for no expiry.'),
+                    'minimum_amount' => array('type' => 'string', 'description' => 'Minimum spend. Omit or empty for none.'),
+                    'description'   => array('type' => 'string'),
+                ),
+                'required' => array('code', 'amount'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_create_coupon',
         ),
         'wc_list_orders' => array(
             'description' => 'List recent WooCommerce orders (newest first).',
@@ -1060,6 +1087,102 @@ function phoenix_mcp_tool_trash_page($args)
         'status'  => get_post_status($post_id),
         'trashed' => true,
     );
+}
+
+function phoenix_mcp_coupon_summary($coupon)
+{
+    $expires = $coupon->get_date_expires();
+    return array(
+        'id'             => $coupon->get_id(),
+        'code'           => $coupon->get_code(),
+        'amount'         => $coupon->get_amount(),
+        'discount_type'  => $coupon->get_discount_type(),
+        'description'    => $coupon->get_description(),
+        'status'         => get_post_status($coupon->get_id()),
+        'date_expires'   => $expires ? $expires->date('Y-m-d H:i:s') : null,
+        'date_expires_timezone' => $expires ? $expires->getTimezone()->getName() : null,
+        'minimum_amount' => $coupon->get_minimum_amount(),
+        'maximum_amount' => $coupon->get_maximum_amount(),
+        'individual_use' => $coupon->get_individual_use(),
+        'product_ids'    => $coupon->get_product_ids(),
+        'excluded_product_ids' => $coupon->get_excluded_product_ids(),
+        'product_categories' => $coupon->get_product_categories(),
+        'usage_limit'    => $coupon->get_usage_limit(),
+        'usage_count'    => $coupon->get_usage_count(),
+    );
+}
+
+function phoenix_mcp_tool_wc_list_coupons($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!empty($args['code'])) {
+        $code = sanitize_text_field($args['code']);
+        $id = wc_get_coupon_id_by_code($code);
+        if (!$id) {
+            return array();
+        }
+        $coupon = new WC_Coupon($id);
+        return array(phoenix_mcp_coupon_summary($coupon));
+    }
+    $per_page = isset($args['per_page']) ? max(1, min(100, (int) $args['per_page'])) : 50;
+    $posts = get_posts(array(
+        'post_type'      => 'shop_coupon',
+        'post_status'    => 'any',
+        'posts_per_page' => $per_page,
+        'orderby'        => 'date',
+        'order'          => 'DESC',
+    ));
+    $out = array();
+    foreach ($posts as $post) {
+        $out[] = phoenix_mcp_coupon_summary(new WC_Coupon($post->ID));
+    }
+    return $out;
+}
+
+function phoenix_mcp_tool_wc_create_coupon($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('edit_shop_coupons') && !current_user_can('manage_woocommerce') && !current_user_can('manage_options')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot create coupons.');
+    }
+    $code = isset($args['code']) ? sanitize_text_field($args['code']) : '';
+    if ($code === '' || !isset($args['amount'])) {
+        return new WP_Error('phoenix_mcp_bad_args', 'code and amount are required.');
+    }
+    if (wc_get_coupon_id_by_code($code)) {
+        return new WP_Error('phoenix_mcp_exists', 'A coupon with code "' . $code . '" already exists.');
+    }
+    $type = isset($args['discount_type']) ? sanitize_key($args['discount_type']) : 'percent';
+    if (!in_array($type, array('percent', 'fixed_cart', 'fixed_product'), true)) {
+        return new WP_Error('phoenix_mcp_bad_args', 'discount_type must be percent, fixed_cart, or fixed_product.');
+    }
+    $coupon = new WC_Coupon();
+    $coupon->set_code($code);
+    $coupon->set_discount_type($type);
+    $coupon->set_amount(wc_format_decimal($args['amount']));
+    $coupon->set_individual_use(false);
+    if (isset($args['description'])) {
+        $coupon->set_description(sanitize_text_field($args['description']));
+    }
+    if (!empty($args['minimum_amount'])) {
+        $coupon->set_minimum_amount(wc_format_decimal($args['minimum_amount']));
+    }
+    if (!empty($args['date_expires'])) {
+        $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', sanitize_text_field($args['date_expires']), wp_timezone());
+        if (!$dt) {
+            return new WP_Error('phoenix_mcp_bad_args', 'date_expires must be Y-m-d H:i:s in the site timezone.');
+        }
+        $coupon->set_date_expires($dt->getTimestamp());
+    }
+    $coupon->save();
+    if (!$coupon->get_id()) {
+        return new WP_Error('phoenix_mcp_create_failed', 'Coupon save did not return an ID.');
+    }
+    return phoenix_mcp_coupon_summary(new WC_Coupon($coupon->get_id()));
 }
 
 function phoenix_mcp_tool_wc_list_orders($args)
