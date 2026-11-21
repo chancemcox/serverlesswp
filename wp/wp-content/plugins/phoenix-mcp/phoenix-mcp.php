@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.6
+ * Version: 1.3.7
  * Author: Phoenix
  */
 
@@ -13,6 +13,7 @@ if (!defined('ABSPATH')) {
 define('PHOENIX_MCP_HASH_OPTION', 'phoenix_mcp_token_hash');
 define('PHOENIX_MCP_USER_OPTION', 'phoenix_mcp_user_id');
 define('PHOENIX_MCP_PROTOCOL_VERSION', '2025-03-26');
+define('PHOENIX_MCP_SALE_COUPON_CODE_OPTION', 'era_sale_coupon_code');
 
 /* -------------------------------------------------------------------------
  * REST route: POST /wp-json/phoenix-mcp/v1/server
@@ -87,7 +88,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.6'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.7'),
             ));
 
         case 'ping':
@@ -455,6 +456,28 @@ function phoenix_mcp_tools()
             ),
             'callback'    => 'phoenix_mcp_tool_wc_create_coupon',
         ),
+        'wc_set_sale_coupon' => array(
+            'description' => 'Designate the single WooCommerce coupon code the ERA Sale Sync plugin auto-applies for the current mirrored Etsy sale. Writes only the era_sale_coupon_code WordPress option. A non-empty code must be an existing WooCommerce coupon; an empty string explicitly means no sale is active and disables sale auto-apply.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'code' => array('type' => 'string', 'description' => 'Existing WooCommerce coupon code to designate as the current sale, or an empty string for no current sale.'),
+                ),
+                'required' => array('code'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_set_sale_coupon',
+        ),
+        'activate_plugin' => array(
+            'description' => 'Activate an already-installed WordPress plugin by plugin file (e.g. "era-sale-sync/era-sale-sync.php") or folder slug (e.g. "era-sale-sync"). Activation only: it cannot install, upload, deactivate, or delete plugins.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'plugin' => array('type' => 'string', 'description' => 'Plugin file (slug/slug.php) or folder slug of an installed plugin.'),
+                ),
+                'required' => array('plugin'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_activate_plugin',
+        ),
         'wc_list_orders' => array(
             'description' => 'List recent WooCommerce orders (newest first).',
             'inputSchema' => array(
@@ -646,6 +669,51 @@ function phoenix_mcp_tool_list_plugins($args)
         );
     }
     return $out;
+}
+
+function phoenix_mcp_tool_activate_plugin($args)
+{
+    if (!current_user_can('activate_plugins') && !current_user_can('manage_options')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot activate plugins.');
+    }
+    if (empty($args['plugin']) || !is_string($args['plugin'])) {
+        return new WP_Error('phoenix_mcp_bad_args', 'plugin is required: a plugin file (slug/slug.php) or a folder slug.');
+    }
+    $plugin = sanitize_text_field($args['plugin']);
+    if (strpos($plugin, '..') !== false || strpos($plugin, '\\') !== false || $plugin === '' || $plugin[0] === '/') {
+        return new WP_Error('phoenix_mcp_bad_args', 'Invalid plugin path.');
+    }
+    if (substr($plugin, -4) !== '.php') {
+        // Treat the value as a folder slug: slug/slug.php
+        $slug = trim($plugin, '/');
+        if (!preg_match('#^[a-z0-9\-_]+$#i', $slug)) {
+            return new WP_Error('phoenix_mcp_bad_args', 'Invalid plugin slug.');
+        }
+        $plugin = $slug . '/' . $slug . '.php';
+    }
+    if (!function_exists('get_plugins') || !function_exists('activate_plugin')) {
+        include_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+    $installed = get_plugins();
+    if (!isset($installed[$plugin])) {
+        return new WP_Error('phoenix_mcp_not_installed', 'Plugin "' . $plugin . '" is not installed.');
+    }
+    $summary = array(
+        'plugin'  => $plugin,
+        'name'    => $installed[$plugin]['Name'],
+        'version' => $installed[$plugin]['Version'],
+    );
+    if (is_plugin_active($plugin)) {
+        return array_merge($summary, array('active' => true, 'already_active' => true));
+    }
+    $result = activate_plugin($plugin);
+    if (is_wp_error($result)) {
+        return $result;
+    }
+    if (!is_plugin_active($plugin)) {
+        return new WP_Error('phoenix_mcp_activation_failed', 'activate_plugin() ran but "' . $plugin . '" does not report active.');
+    }
+    return array_merge($summary, array('active' => true, 'already_active' => false));
 }
 
 function phoenix_mcp_require_woo()
@@ -1183,6 +1251,47 @@ function phoenix_mcp_tool_wc_create_coupon($args)
         return new WP_Error('phoenix_mcp_create_failed', 'Coupon save did not return an ID.');
     }
     return phoenix_mcp_coupon_summary(new WC_Coupon($coupon->get_id()));
+}
+
+function phoenix_mcp_tool_wc_set_sale_coupon($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('edit_shop_coupons') && !current_user_can('manage_woocommerce') && !current_user_can('manage_options')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot manage coupons.');
+    }
+    if (!isset($args['code']) || !is_string($args['code'])) {
+        return new WP_Error('phoenix_mcp_bad_args', 'code is required (use an empty string for no current sale).');
+    }
+    $input = trim(sanitize_text_field($args['code']));
+    if ($input === '') {
+        // Empty string explicitly means: no sale is active right now.
+        update_option(PHOENIX_MCP_SALE_COUPON_CODE_OPTION, '');
+        return array(
+            'option'          => PHOENIX_MCP_SALE_COUPON_CODE_OPTION,
+            'code'            => '',
+            'sale_designated' => false,
+            'coupon'          => null,
+        );
+    }
+    $id = wc_get_coupon_id_by_code($input);
+    if (!$id) {
+        $id = wc_get_coupon_id_by_code(strtolower($input));
+    }
+    if (!$id) {
+        return new WP_Error('phoenix_mcp_no_coupon', 'No WooCommerce coupon exists with code "' . $input . '".');
+    }
+    $coupon = new WC_Coupon($id);
+    // Store the coupon's canonical code, exactly as WooCommerce has it.
+    update_option(PHOENIX_MCP_SALE_COUPON_CODE_OPTION, $coupon->get_code());
+    $stored = get_option(PHOENIX_MCP_SALE_COUPON_CODE_OPTION, '');
+    return array(
+        'option'          => PHOENIX_MCP_SALE_COUPON_CODE_OPTION,
+        'code'            => is_string($stored) ? $stored : '',
+        'sale_designated' => $stored !== '' && $stored !== false,
+        'coupon'          => phoenix_mcp_coupon_summary(new WC_Coupon($id)),
+    );
 }
 
 function phoenix_mcp_tool_wc_list_orders($args)
