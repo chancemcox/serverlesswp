@@ -14,6 +14,15 @@ function era_setup() {
 }
 add_action('after_setup_theme', 'era_setup');
 
+/* No sidebar on WooCommerce pages. This theme ships no sidebar.php and
+ * registers no widget areas, so WooCommerce's default sidebar action
+ * (woocommerce_get_sidebar -> get_sidebar('shop')) fell through to
+ * WordPress's theme-compat fallback, rendering the default Search /
+ * Pages / Archives widgets full-width under the products on shop,
+ * product-category and single-product pages. Removing the action keeps
+ * those pages full-width, as the theme's layout already assumes. */
+remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
+
 function era_assets() {
     wp_enqueue_style('era-style', get_stylesheet_uri(), array(), '1.0.2');
 }
