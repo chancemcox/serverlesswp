@@ -15,10 +15,15 @@ function era_setup() {
 add_action('after_setup_theme', 'era_setup');
 
 function era_assets() {
-    wp_enqueue_style('era-fonts', 'https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;700&display=swap', array(), null);
-    wp_enqueue_style('era-style', get_stylesheet_uri(), array('era-fonts'), '1.0.0');
+    wp_enqueue_style('era-style', get_stylesheet_uri(), array(), '1.0.1');
 }
 add_action('wp_enqueue_scripts', 'era_assets');
+
+function era_preload_fonts() {
+    echo '<link rel="preload" href="https://fonts.gstatic.com/s/bungee/v17/N0bU2SZBIuF2PU_0DXR1C9zfmQ.woff2" as="font" type="font/woff2" crossorigin>' . "\n";
+    echo '<link rel="preload" href="https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPbF4C_k3HqU.woff2" as="font" type="font/woff2" crossorigin>' . "\n";
+}
+add_action('wp_head', 'era_preload_fonts', 1);
 
 function era_fallback_menu() {
     echo '<ul>';
