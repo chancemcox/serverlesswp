@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.2
+ * Version: 1.3.3
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.2'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.3'),
             ));
 
         case 'ping':
@@ -196,6 +196,20 @@ function phoenix_mcp_tools()
                 'required' => array('title'),
             ),
             'callback'    => 'phoenix_mcp_tool_create_post',
+        ),
+        'create_page' => array(
+            'description' => 'Create a WordPress page with an explicit slug. Defaults to draft.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'title'   => array('type' => 'string'),
+                    'content' => array('type' => 'string'),
+                    'slug'    => array('type' => 'string', 'description' => 'URL slug, e.g. about.'),
+                    'status'  => array('type' => 'string', 'description' => 'draft or publish. Default draft.'),
+                ),
+                'required' => array('title', 'slug'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_create_page',
         ),
         'list_pages' => array(
             'description' => 'List pages (newest first).',
@@ -411,6 +425,39 @@ function phoenix_mcp_tool_list_posts($args)
         $query['s'] = sanitize_text_field($args['search']);
     }
     return array_map('phoenix_mcp_post_summary', get_posts($query));
+}
+
+function phoenix_mcp_tool_create_page($args)
+{
+    if (!current_user_can('edit_pages')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot create pages.');
+    }
+    $status = isset($args['status']) && $args['status'] === 'publish' ? 'publish' : 'draft';
+    if ($status === 'publish' && !current_user_can('publish_pages')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot publish pages.');
+    }
+    $slug = sanitize_title($args['slug']);
+    $existing = get_page_by_path($slug);
+    if ($existing) {
+        return new WP_Error('phoenix_mcp_exists', 'A page with slug "' . $slug . '" already exists (ID ' . $existing->ID . ').');
+    }
+    $post_id = wp_insert_post(array(
+        'post_title'   => sanitize_text_field($args['title']),
+        'post_content' => isset($args['content']) ? wp_kses_post($args['content']) : '',
+        'post_status'  => $status,
+        'post_type'    => 'page',
+        'post_name'    => $slug,
+        'post_author'  => get_current_user_id(),
+    ), true);
+    if (is_wp_error($post_id)) {
+        return $post_id;
+    }
+    return array(
+        'id'     => $post_id,
+        'title'  => get_the_title($post_id),
+        'status' => get_post_status($post_id),
+        'link'   => get_permalink($post_id),
+    );
 }
 
 function phoenix_mcp_tool_list_pages($args)
