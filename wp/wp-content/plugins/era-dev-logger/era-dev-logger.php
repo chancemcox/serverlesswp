@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: ERA Dev Logger
- * Description: Dev-only request breadcrumb logger. Records one trail per request (plugin file load, plugins_loaded, setup_theme, init, wp_loaded, shutdown, plus PHP fatal capture) and writes it to the serverlesswp-db R2 bucket under dev-logs/<date>/<time>-<random>.log, re-writing the object at every milestone so a hung request leaves its partial trail behind. Also compiles a once-a-day health report to dev-logs/health/<date>.json. Inert on any host other than the dev deployment. Built so Phoenix can see where a dev request stops, since Vercel runtime logs are not reachable.
- * Version: 1.1.0
+ * Description: Dev-only request breadcrumb logger. Records one trail per request (plugin file load, plugins_loaded, setup_theme, init, wp_loaded, shutdown, plus PHP fatal capture and — since 1.2.0 — PHP warnings, notices, deprecations and recoverable errors via an error handler) and writes it to the serverlesswp-db R2 bucket under dev-logs/<date>/<time>-<random>.log, re-writing the object at every milestone so a hung request leaves its partial trail behind. Also compiles a once-a-day health report to dev-logs/health/<date>.json. Inert on any host other than the dev deployment. Built so Phoenix can see where a dev request stops, since Vercel runtime logs are not reachable.
+ * Version: 1.2.0
  * Author: Apparel is How Eye Roll
  * License: GPL-2.0-or-later
  * Text Domain: era-dev-logger
@@ -30,6 +30,7 @@ class ERA_Dev_Logger
     private static $key = null;         // R2 object key for this request
     private static $config = null;      // resolved S3 config, or false when unusable
     private static $wp_shutdown_seen = false;
+    private static $error_lines = 0;    // php_error lines recorded this request (capped)
 
     /* ------------------------------------------------------------------
      * Bootstrap: called once when this plugin file is loaded by WordPress.
@@ -68,7 +69,61 @@ class ERA_Dev_Logger
         add_action('shutdown', array(__CLASS__, 'on_wp_shutdown'), 9999);
         register_shutdown_function(array(__CLASS__, 'on_php_shutdown'));
 
+        /* v1.2.0: capture the full in-app error picture — warnings,
+         * notices, deprecations and recoverable errors — into the trail,
+         * not just fatals. The handler always returns false so PHP's own
+         * error handling continues exactly as before. */
+        set_error_handler(array(__CLASS__, 'on_error'),
+            E_WARNING | E_USER_WARNING | E_RECOVERABLE_ERROR
+            | E_NOTICE | E_USER_NOTICE | E_DEPRECATED | E_USER_DEPRECATED);
+
         self::flush();
+    }
+
+    /* ------------------------------------------------------------------
+     * Error handler (v1.2.0). Appends one 'php_error' line per error to
+     * the trail. Warnings and recoverable errors flush immediately (they
+     * are the ones that precede a hang or a broken page); notices and
+     * deprecations ride along on the next milestone flush so a noisy
+     * request cannot turn into an R2 PUT per notice. Capped per request
+     * so the trail stays bounded. Always returns false: PHP's standard
+     * handler must still run, and error_reporting/@-suppression are
+     * respected.
+     * --------------------------------------------------------------- */
+    public static function on_error($errno, $errstr, $errfile, $errline)
+    {
+        try {
+            if (!(error_reporting() & $errno)) {
+                return false; // @-suppressed or excluded: not ours to record.
+            }
+            if (self::$error_lines >= 50) {
+                if (self::$error_lines === 50) {
+                    self::$error_lines++;
+                    self::line('php_error', 'error cap reached (50); further errors this request are not recorded');
+                    self::flush();
+                }
+                return false;
+            }
+            self::$error_lines++;
+            $names = array(
+                E_WARNING => 'E_WARNING',
+                E_USER_WARNING => 'E_USER_WARNING',
+                E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR',
+                E_NOTICE => 'E_NOTICE',
+                E_USER_NOTICE => 'E_USER_NOTICE',
+                E_DEPRECATED => 'E_DEPRECATED',
+                E_USER_DEPRECATED => 'E_USER_DEPRECATED',
+            );
+            $name = isset($names[$errno]) ? $names[$errno] : ('E_' . $errno);
+            self::line('php_error', $name . ': ' . $errstr
+                . ' in ' . $errfile . ':' . $errline);
+            if (in_array($errno, array(E_WARNING, E_USER_WARNING, E_RECOVERABLE_ERROR), true)) {
+                self::flush();
+            }
+        } catch (Throwable $e) {
+            // A logger must never take the site down with it.
+        }
+        return false;
     }
 
     public static function on_plugins_loaded()
