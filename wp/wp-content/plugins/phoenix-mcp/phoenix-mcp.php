@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.1'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.2'),
             ));
 
         case 'ping':
@@ -255,6 +255,23 @@ function phoenix_mcp_tools()
                 'required' => array('id'),
             ),
             'callback'    => 'phoenix_mcp_tool_wc_update_product',
+        ),
+        'wc_set_product_images' => array(
+            'description' => 'Download images from public URLs into the media library and set them on a WooCommerce product: the first image becomes the featured image, the rest become the gallery. Replaces the current images. Uploads flow through WP Offload Media, so files land in durable object storage.',
+            'inputSchema' => array(
+                'type'       => 'object',
+                'properties' => array(
+                    'id'         => array('type' => 'integer'),
+                    'image_urls' => array(
+                        'type'        => 'array',
+                        'items'       => array('type' => 'string'),
+                        'description' => 'Public image URLs, featured image first. Max 4 per call.',
+                    ),
+                    'alt'        => array('type' => 'string', 'description' => 'Alt text for the featured image. Defaults to the product name.'),
+                ),
+                'required' => array('id', 'image_urls'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_set_product_images',
         ),
         'wc_list_categories' => array(
             'description' => 'List WooCommerce product categories (including empty ones), paginated.',
@@ -547,6 +564,73 @@ function phoenix_mcp_tool_wc_update_product($args)
     }
     $product->save();
     return phoenix_mcp_product_summary($product);
+}
+
+function phoenix_mcp_tool_wc_set_product_images($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('edit_products') || !current_user_can('upload_files')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot edit products or upload files.');
+    }
+    $product = wc_get_product((int) $args['id']);
+    if (!$product) {
+        return new WP_Error('phoenix_mcp_not_found', 'No product with that ID.');
+    }
+    $urls = array();
+    foreach ((array) $args['image_urls'] as $u) {
+        $u = esc_url_raw($u);
+        if ($u !== '') {
+            $urls[] = $u;
+        }
+    }
+    $urls = array_slice(array_values(array_unique($urls)), 0, 4);
+    if (!$urls) {
+        return new WP_Error('phoenix_mcp_bad_args', 'No usable image URLs.');
+    }
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+
+    $alt      = isset($args['alt']) && $args['alt'] !== '' ? sanitize_text_field($args['alt']) : $product->get_name();
+    $attached = array();
+    $errors   = array();
+    foreach ($urls as $url) {
+        $name = basename(parse_url($url, PHP_URL_PATH));
+        if ($name === '' || strpos($name, '.') === false) {
+            $name = 'product-' . $product->get_id() . '-' . (count($attached) + 1) . '.jpg';
+        }
+        $tmp = download_url($url, 60);
+        if (is_wp_error($tmp)) {
+            $errors[] = $url . ' download failed: ' . $tmp->get_error_message();
+            continue;
+        }
+        $file   = array('name' => sanitize_file_name($name), 'tmp_name' => $tmp);
+        $att_id = media_handle_sideload($file, $product->get_id());
+        if (is_wp_error($att_id)) {
+            $errors[] = $url . ' sideload failed: ' . $att_id->get_error_message();
+            continue;
+        }
+        $attached[] = (int) $att_id;
+    }
+    if (!$attached) {
+        return new WP_Error('phoenix_mcp_upload_failed', 'Every image failed. ' . implode(' | ', $errors));
+    }
+    update_post_meta($attached[0], '_wp_attachment_image_alt', $alt);
+    $product->set_image_id($attached[0]);
+    $product->set_gallery_image_ids(array_slice($attached, 1));
+    $product->save();
+    $urls_out = array();
+    foreach ($attached as $att_id) {
+        $urls_out[] = wp_get_attachment_url($att_id);
+    }
+    return array(
+        'id'      => $product->get_id(),
+        'image'   => $urls_out[0],
+        'gallery' => array_slice($urls_out, 1),
+        'errors'  => $errors,
+    );
 }
 
 function phoenix_mcp_tool_wc_list_categories($args)
