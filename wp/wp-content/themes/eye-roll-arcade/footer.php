@@ -14,10 +14,10 @@
     <div>
       <h4>SHOP</h4>
       <ul>
-        <li><a href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">All products on Etsy</a></li>
-        <li><a href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">Dad jokes</a></li>
-        <li><a href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">Programmer humor</a></li>
-        <li><a href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">Child of the 90s</a></li>
+        <li><a href="<?php echo esc_url(home_url('/shop/')); ?>">All products</a></li>
+        <li><a href="<?php echo esc_url(home_url('/product-category/dad-jokes/')); ?>">Dad jokes</a></li>
+        <li><a href="<?php echo esc_url(home_url('/product-category/programmer-humor/')); ?>">Programmer humor</a></li>
+        <li><a href="<?php echo esc_url(home_url('/product-category/child-of-the-90s/')); ?>">Child of the 90s</a></li>
       </ul>
     </div>
     <div>

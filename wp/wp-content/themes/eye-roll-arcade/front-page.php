@@ -7,7 +7,7 @@ $era_products = array(
         'name' => 'Python Cheat Sheet Desk Mat',
         'tag'  => 'Programmer Humor',
         'img'  => 'https://i.etsystatic.com/67195577/r/il/d5be7e/8940025549/il_570xN.8940025549_n4lz.jpg',
-        'url'  => 'https://www.etsy.com/listing/4621425251',
+        'url'  => 'https://www.apparelishoweyeroll.com/product/python-cheat-sheet-desk-mat-large-48x24-python-syntax-mouse-pad-programmer-developer-gift-coding-reference-mat/',
     ),
     array(
         'name' => 'Adulting Is Soup And I Am A Fork Shirt',
@@ -19,25 +19,25 @@ $era_products = array(
         'name' => 'Cozy Christmas Movie Heart Pillow',
         'tag'  => 'Christmas',
         'img'  => 'https://i.etsystatic.com/67195577/r/il/ef64b9/8934304263/il_570xN.8934304263_6h9m.jpg',
-        'url'  => 'https://www.etsy.com/listing/4620728849',
+        'url'  => 'https://www.apparelishoweyeroll.com/product/funny-christmas-throw-pillow-cozy-christmas-movie-heart-chaotic-christmas-vacation-household-watercolor-tree/',
     ),
     array(
         'name' => 'AI Coding Cheat Sheet Desk Mat',
         'tag'  => 'Programmer Humor',
         'img'  => 'https://i.etsystatic.com/67195577/r/il/3d56d1/8940027015/il_570xN.8940027015_lttn.jpg',
-        'url'  => 'https://www.etsy.com/listing/4621425521',
+        'url'  => 'https://www.apparelishoweyeroll.com/product/ai-coding-cheat-sheet-desk-mat-large-48x24-ai-assistant-prompts-mouse-pad-programmer-developer-gift/',
     ),
     array(
         'name' => 'Big Bang Happened Canvas Wall Art',
         'tag'  => 'Faith &amp; Funny',
         'img'  => 'https://i.etsystatic.com/67195577/r/il/9ad571/8895858272/il_570xN.8895858272_n5k4.jpg',
-        'url'  => 'https://www.etsy.com/listing/4621843371',
+        'url'  => 'https://www.apparelishoweyeroll.com/product/big-bang-happened-canvas-wall-art-god-spoke-creation-decor-funny-christian-faith-art-church-office-decor-gift/',
     ),
     array(
         'name' => 'Cozy Christmas Movie Heart Mug',
         'tag'  => 'Christmas',
         'img'  => 'https://i.etsystatic.com/67195577/r/il/715c4d/8934281161/il_570xN.8934281161_1e6l.jpg',
-        'url'  => 'https://www.etsy.com/listing/4620726537',
+        'url'  => 'https://www.apparelishoweyeroll.com/product/funny-christmas-mug-cozy-christmas-movie-heart-chaotic-christmas-vacation-household-watercolor-tree-gift/',
     ),
 );
 ?>
@@ -47,14 +47,14 @@ $era_products = array(
       <h1>DAD JOKES ARE<br><span class="line2">HOW EYE ROLL</span></h1>
       <p class="lede">Funny shirts, desk mats &amp; gifts your family will pretend not to laugh at. Wear the joke. Own the eye roll.</p>
       <div class="btns">
-        <a class="btn btn-pink" href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">SHOP THE JOKES</a>
-        <a class="btn btn-ghost" href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">CHILD OF THE 90S</a>
+        <a class="btn btn-pink" href="<?php echo esc_url(home_url('/shop/')); ?>">SHOP THE JOKES</a>
+        <a class="btn btn-ghost" href="<?php echo esc_url(home_url('/product-category/child-of-the-90s/')); ?>">CHILD OF THE 90S</a>
       </div>
       <div class="chips">
-        <a class="chip" href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">Dad Jokes</a>
-        <a class="chip" href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">Programmer Humor</a>
-        <a class="chip" href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">90s Kid</a>
-        <a class="chip" href="<?php echo esc_url(ERA_ETSY_SHOP); ?>">Christmas</a>
+        <a class="chip" href="<?php echo esc_url(home_url('/product-category/dad-jokes/')); ?>">Dad Jokes</a>
+        <a class="chip" href="<?php echo esc_url(home_url('/product-category/programmer-humor/')); ?>">Programmer Humor</a>
+        <a class="chip" href="<?php echo esc_url(home_url('/product-category/child-of-the-90s/')); ?>">90s Kid</a>
+        <a class="chip" href="<?php echo esc_url(home_url('/product-category/christmas/')); ?>">Christmas</a>
       </div>
     </div>
     <div class="hero-badge">
@@ -74,7 +74,7 @@ $era_products = array(
         <div class="card-in">
           <span class="tag"><?php echo $p['tag']; ?></span>
           <h3><?php echo esc_html($p['name']); ?></h3>
-          <a class="btn btn-pink" href="<?php echo esc_url($p['url']); ?>">SHOP ON ETSY</a>
+          <a class="btn btn-pink" href="<?php echo esc_url($p['url']); ?>"><?php echo (strpos($p['url'], 'etsy.com') !== false) ? 'SHOP ON ETSY' : 'SHOP NOW'; ?></a>
         </div>
       </article>
       <?php endforeach; ?>

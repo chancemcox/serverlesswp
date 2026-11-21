@@ -27,9 +27,10 @@ add_action('wp_head', 'era_preload_fonts', 1);
 
 function era_fallback_menu() {
     echo '<ul>';
-    echo '<li><a href="' . esc_url(ERA_ETSY_SHOP) . '">Shop</a></li>';
-    echo '<li><a href="' . esc_url(ERA_ETSY_SHOP) . '">Dad Jokes</a></li>';
-    echo '<li><a href="' . esc_url(ERA_ETSY_SHOP) . '">Programmer</a></li>';
+    echo '<li><a href="' . esc_url(home_url('/shop/')) . '">Shop</a></li>';
+    echo '<li><a href="' . esc_url(home_url('/product-category/dad-jokes/')) . '">Dad Jokes</a></li>';
+    echo '<li><a href="' . esc_url(home_url('/product-category/programmer-humor/')) . '">Programmer</a></li>';
+    echo '<li><a href="' . esc_url(ERA_ETSY_SHOP) . '">Shop on Etsy</a></li>';
     echo '<li><a href="' . esc_url(home_url('/about/')) . '">About</a></li>';
     echo '</ul>';
 }
