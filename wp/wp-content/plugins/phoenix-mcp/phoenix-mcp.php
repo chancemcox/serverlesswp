@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.4
+ * Version: 1.3.5
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.4'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.5'),
             ));
 
         case 'ping':
@@ -211,6 +211,20 @@ function phoenix_mcp_tools()
                 'required' => array('title', 'slug'),
             ),
             'callback'    => 'phoenix_mcp_tool_create_page',
+        ),
+        'update_page' => array(
+            'description' => 'Update an existing page: title, content, and/or status (publish, draft, private).',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'id'      => array('type' => 'integer'),
+                    'title'   => array('type' => 'string'),
+                    'content' => array('type' => 'string'),
+                    'status'  => array('type' => 'string', 'description' => 'publish, draft, or private.'),
+                ),
+                'required' => array('id'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_update_page',
         ),
         'list_pages' => array(
             'description' => 'List pages (newest first).',
@@ -510,6 +524,45 @@ function phoenix_mcp_tool_create_page($args)
         'status'     => get_post_status($post_id),
         'link'       => get_permalink($post_id),
         'posts_page' => $posts_page,
+    );
+}
+
+function phoenix_mcp_tool_update_page($args)
+{
+    $post_id = (int) $args['id'];
+    $post    = get_post($post_id);
+    if (!$post || $post->post_type !== 'page') {
+        return new WP_Error('phoenix_mcp_not_found', 'No page with that ID.');
+    }
+    if (!current_user_can('edit_post', $post_id)) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot edit pages.');
+    }
+    $update = array('ID' => $post_id);
+    if (isset($args['title'])) {
+        $update['post_title'] = sanitize_text_field($args['title']);
+    }
+    if (isset($args['content'])) {
+        $update['post_content'] = wp_kses_post($args['content']);
+    }
+    if (isset($args['status'])) {
+        $status = sanitize_key($args['status']);
+        if (!in_array($status, array('publish', 'draft', 'private'), true)) {
+            return new WP_Error('phoenix_mcp_bad_status', 'Status must be publish, draft, or private.');
+        }
+        if ($status === 'publish' && !current_user_can('publish_pages')) {
+            return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot publish pages.');
+        }
+        $update['post_status'] = $status;
+    }
+    $result = wp_update_post($update, true);
+    if (is_wp_error($result)) {
+        return $result;
+    }
+    return array(
+        'id'     => $post_id,
+        'title'  => get_the_title($post_id),
+        'status' => get_post_status($post_id),
+        'link'   => get_permalink($post_id),
     );
 }
 
