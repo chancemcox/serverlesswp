@@ -145,6 +145,45 @@ function era_social_tags() {
 }
 add_action('wp_head', 'era_social_tags', 5);
 
+/* Self-referential canonical tags. Core's rel_canonical only covers
+ * singular views, so the theme takes over: front page -> home URL,
+ * singular posts/products/pages -> the permalink, product category
+ * archives -> the term link, shop -> the shop permalink, blog index ->
+ * the posts page permalink. Exactly one canonical per page. */
+function era_canonical_url() {
+    if (is_front_page()) {
+        return home_url('/');
+    }
+    if (is_product_category()) {
+        $term = get_queried_object();
+        if ($term) {
+            $link = get_term_link($term);
+            if (!is_wp_error($link)) { return $link; }
+        }
+    }
+    if (function_exists('is_shop') && is_shop()) {
+        return get_permalink(wc_get_page_id('shop'));
+    }
+    if (is_home()) {
+        $posts_page = (int) get_option('page_for_posts');
+        if ($posts_page) { return get_permalink($posts_page); }
+        return home_url('/');
+    }
+    if (is_singular()) {
+        return get_permalink();
+    }
+    return null;
+}
+
+function era_canonical_tag() {
+    $url = era_canonical_url();
+    if ($url) {
+        echo '<link rel="canonical" href="' . esc_url($url) . '">' . "\n";
+    }
+}
+remove_action('wp_head', 'rel_canonical');
+add_action('wp_head', 'era_canonical_tag', 2);
+
 function era_json_ld() {
     if (!is_front_page()) { return; }
     $data = array(
