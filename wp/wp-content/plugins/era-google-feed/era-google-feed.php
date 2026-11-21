@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ERA Google Shopping Feed
  * Description: Generates a Google Merchant Center product feed from WooCommerce products so Google Shopping stays in sync with the store on a scheduled fetch. Exposes the feed as RSS 2.0 XML (g: namespace) at /?era_google_feed=xml and at the pretty path /google-shopping-feed.xml. Read-only: this plugin never changes products, orders, or settings.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Apparel is How Eye Roll
  * License: GPL-2.0-or-later
  * Text Domain: era-google-feed
@@ -99,16 +99,9 @@ function era_google_feed_esc($value)
  */
 function era_google_feed_variant_attributes($variation)
 {
-    $map = array(
-        'color'     => 'g:color',
-        'colour'    => 'g:color',
-        'size'      => 'g:size',
-        'gender'    => 'g:gender',
-        'age_group' => 'g:age_group',
-        'age'       => 'g:age_group',
-        'material'  => 'g:material',
-        'pattern'   => 'g:pattern',
-    );
+    // This catalog's attribute slugs are Printify-style names such as
+    // "bella-canvas-colors" and "clothing-sizes", so match on substrings
+    // rather than exact attribute names.
     $out = array();
     foreach ((array) $variation->get_attributes() as $taxonomy => $value) {
         if ($value === '' || $value === null) {
@@ -119,10 +112,23 @@ function era_google_feed_variant_attributes($variation)
             $key = substr($key, 3);
         }
         $key = str_replace(array('-', ' '), '_', $key);
-        if (!isset($map[$key])) {
+        $label = null;
+        if (strpos($key, 'color') !== false || strpos($key, 'colour') !== false) {
+            $label = 'g:color';
+        } elseif (strpos($key, 'size') !== false) {
+            $label = 'g:size';
+        } elseif (strpos($key, 'gender') !== false) {
+            $label = 'g:gender';
+        } elseif (strpos($key, 'age') !== false) {
+            $label = 'g:age_group';
+        } elseif (strpos($key, 'material') !== false) {
+            $label = 'g:material';
+        } elseif (strpos($key, 'pattern') !== false) {
+            $label = 'g:pattern';
+        }
+        if ($label === null) {
             continue;
         }
-        $label = $map[$key];
         if (isset($out[$label])) {
             continue;
         }
