@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.2.0
+ * Version: 1.3.0
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.2.0'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.0'),
             ));
 
         case 'ping':
@@ -235,19 +235,59 @@ function phoenix_mcp_tools()
             'callback'    => 'phoenix_mcp_tool_wc_get_product',
         ),
         'wc_update_product' => array(
-            'description' => 'Update a WooCommerce product: regular price, sale price, stock quantity, and/or status.',
+            'description' => 'Update a WooCommerce product: regular price, sale price, stock quantity, status, description, short description, and/or categories (replaces the category list).',
             'inputSchema' => array(
                 'type' => 'object',
                 'properties' => array(
-                    'id'             => array('type' => 'integer'),
-                    'regular_price'  => array('type' => 'string'),
-                    'sale_price'     => array('type' => 'string'),
-                    'stock_quantity' => array('type' => 'integer'),
-                    'status'         => array('type' => 'string', 'description' => 'publish or draft.'),
+                    'id'                => array('type' => 'integer'),
+                    'regular_price'     => array('type' => 'string'),
+                    'sale_price'        => array('type' => 'string'),
+                    'stock_quantity'    => array('type' => 'integer'),
+                    'status'            => array('type' => 'string', 'description' => 'publish or draft.'),
+                    'description'       => array('type' => 'string', 'description' => 'Full product description (HTML allowed).'),
+                    'short_description' => array('type' => 'string', 'description' => 'Short product description (HTML allowed).'),
+                    'categories'        => array(
+                        'type'        => 'array',
+                        'items'       => array('type' => 'integer'),
+                        'description' => 'Product category IDs; replaces the current categories.',
+                    ),
                 ),
                 'required' => array('id'),
             ),
             'callback'    => 'phoenix_mcp_tool_wc_update_product',
+        ),
+        'wc_list_categories' => array(
+            'description' => 'List WooCommerce product categories (including empty ones), paginated.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'per_page' => array('type' => 'integer', 'description' => 'How many to return (1-100). Default 100.'),
+                    'page'     => array('type' => 'integer', 'description' => 'Page number. Default 1.'),
+                ),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_list_categories',
+        ),
+        'wc_create_category' => array(
+            'description' => 'Create a WooCommerce product category.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'name'        => array('type' => 'string'),
+                    'slug'        => array('type' => 'string'),
+                    'description' => array('type' => 'string'),
+                ),
+                'required' => array('name', 'slug'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_create_category',
+        ),
+        'trash_post' => array(
+            'description' => 'Move a blog post to the trash by post ID.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array('id' => array('type' => 'integer')),
+                'required' => array('id'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_trash_post',
         ),
         'wc_create_api_key' => array(
             'description' => 'Create a WooCommerce REST API key (read_write) for the token user and stage it server-side for delivery to Printify. The key material never leaves the server. Returns only the key ID and its last 7 characters.',
@@ -482,8 +522,99 @@ function phoenix_mcp_tool_wc_update_product($args)
     if (isset($args['status']) && in_array($args['status'], array('publish', 'draft'), true)) {
         $product->set_status($args['status']);
     }
+    if (isset($args['description'])) {
+        $product->set_description(wp_kses_post($args['description']));
+    }
+    if (isset($args['short_description'])) {
+        $product->set_short_description(wp_kses_post($args['short_description']));
+    }
+    if (isset($args['categories']) && is_array($args['categories'])) {
+        $product->set_category_ids(array_map('intval', $args['categories']));
+    }
     $product->save();
     return phoenix_mcp_product_summary($product);
+}
+
+function phoenix_mcp_tool_wc_list_categories($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    $per_page = isset($args['per_page']) ? max(1, min(100, (int) $args['per_page'])) : 100;
+    $page     = isset($args['page']) ? max(1, (int) $args['page']) : 1;
+    $terms = get_terms(array(
+        'taxonomy'   => 'product_cat',
+        'hide_empty' => false,
+        'number'     => $per_page,
+        'offset'     => ($page - 1) * $per_page,
+        'orderby'    => 'name',
+        'order'      => 'ASC',
+    ));
+    if (is_wp_error($terms)) {
+        return $terms;
+    }
+    $out = array();
+    foreach ($terms as $term) {
+        $out[] = array(
+            'id'          => $term->term_id,
+            'name'        => $term->name,
+            'slug'        => $term->slug,
+            'description' => $term->description,
+            'parent'      => $term->parent,
+            'count'       => $term->count,
+        );
+    }
+    return $out;
+}
+
+function phoenix_mcp_tool_wc_create_category($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('manage_product_terms') && !current_user_can('manage_options')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot manage product categories.');
+    }
+    $name = sanitize_text_field($args['name']);
+    $slug = sanitize_title($args['slug']);
+    $term_args = array('slug' => $slug);
+    if (isset($args['description'])) {
+        $term_args['description'] = wp_kses_post($args['description']);
+    }
+    $result = wp_insert_term($name, 'product_cat', $term_args);
+    if (is_wp_error($result)) {
+        return $result;
+    }
+    $term = get_term((int) $result['term_id'], 'product_cat');
+    return array(
+        'id'          => $term->term_id,
+        'name'        => $term->name,
+        'slug'        => $term->slug,
+        'description' => $term->description,
+        'parent'      => $term->parent,
+        'count'       => $term->count,
+    );
+}
+
+function phoenix_mcp_tool_trash_post($args)
+{
+    $post_id = (int) $args['id'];
+    $post    = get_post($post_id);
+    if (!$post || $post->post_type !== 'post') {
+        return new WP_Error('phoenix_mcp_not_found', 'No blog post with that ID.');
+    }
+    if (!current_user_can('delete_post', $post_id)) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot delete posts.');
+    }
+    if (!wp_trash_post($post_id)) {
+        return new WP_Error('phoenix_mcp_trash_failed', 'Could not trash the post.');
+    }
+    return array(
+        'id'      => $post_id,
+        'title'   => $post->post_title,
+        'status'  => get_post_status($post_id),
+        'trashed' => true,
+    );
 }
 
 function phoenix_mcp_tool_wc_list_orders($args)
