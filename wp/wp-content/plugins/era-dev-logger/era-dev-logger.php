@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ERA Dev Logger
  * Description: Dev-only request breadcrumb logger. Records one trail per request (plugin file load, plugins_loaded, setup_theme, init, wp_loaded, shutdown, plus PHP fatal capture and — since 1.2.0 — PHP warnings, notices, deprecations and recoverable errors via an error handler) and writes it to the serverlesswp-db R2 bucket under dev-logs/<date>/<time>-<random>.log, re-writing the object at every milestone so a hung request leaves its partial trail behind. Also compiles a once-a-day health report to dev-logs/health/<date>.json. Inert on any host other than the dev deployment. Built so Phoenix can see where a dev request stops, since Vercel runtime logs are not reachable.
- * Version: 1.2.0
+ * Version: 1.2.1
  * Author: Apparel is How Eye Roll
  * License: GPL-2.0-or-later
  * Text Domain: era-dev-logger
@@ -385,8 +385,8 @@ class ERA_Dev_Logger
         }
         $endpoint = self::env_get(array('SQLITE_S3_ENDPOINT', 'SQLITE_S3_ENDPOINT_URL', 'S3_ENDPOINT'));
         $bucket = self::env_get(array('SQLITE_S3_BUCKET', 'S3_BUCKET'));
-        $key_id = self::env_get(array('SQLITE_S3_ACCESS_KEY_ID', 'SQLITE_S3_KEY_ID', 'SQLITE_S3_ACCESS_KEY', 'S3_ACCESS_KEY_ID'));
-        $secret = self::env_get(array('SQLITE_S3_SECRET_ACCESS_KEY', 'SQLITE_S3_SECRET', 'S3_SECRET_ACCESS_KEY'));
+        $key_id = self::env_get(array('SQLITE_S3_API_KEY', 'SQLITE_S3_ACCESS_KEY_ID', 'SQLITE_S3_KEY_ID', 'SQLITE_S3_ACCESS_KEY', 'S3_ACCESS_KEY_ID'));
+        $secret = self::env_get(array('SQLITE_S3_API_SECRET', 'SQLITE_S3_SECRET_ACCESS_KEY', 'SQLITE_S3_SECRET', 'S3_SECRET_ACCESS_KEY'));
         $region = self::env_get(array('SQLITE_S3_REGION', 'S3_REGION'));
         if ($region === null || $region === '') {
             $region = 'auto'; // Cloudflare R2 convention.
