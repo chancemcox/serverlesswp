@@ -1,1 +1,2 @@
-wp/wp-content/plugins/facebook-for-woocommerce
+# DEV BRANCH ONLY: facebook-for-woocommerce is intentionally INCLUDED in dev deployments for plugin testing.
+# Production (main) keeps its own .vercelignore excluding the plugin. Do not copy this file to main.
