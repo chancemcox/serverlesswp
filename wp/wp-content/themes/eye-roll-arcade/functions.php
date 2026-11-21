@@ -235,3 +235,33 @@ function era_json_ld() {
     echo '<script type="application/ld+json">' . wp_json_encode($data) . '</script>' . "\n";
 }
 add_action('wp_head', 'era_json_ld', 6);
+
+/* -------------------------------------------------------------------------
+ * Auto-apply the NOVEMBERSALE coupon so WordPress matches Etsy's
+ * automatic sale (no code typing at checkout). Validity is delegated to
+ * WooCommerce itself: once the coupon expires (Dec 1, 2026 00:00
+ * America/Chicago) or is deleted/unpublished, WC_Coupon::is_valid()
+ * fails and this stops applying it on its own. No dates hard-coded.
+ * ---------------------------------------------------------------------- */
+function era_auto_apply_novembersale($cart) {
+    static $era_running = false;
+    if ($era_running) { return; } // add_discount() re-triggers calculate_totals
+    if (!is_object($cart) || !method_exists($cart, 'add_discount')) { return; }
+    if (is_admin() && !wp_doing_ajax()) { return; }
+    if (!class_exists('WC_Coupon')) { return; }
+    if ($cart->is_empty()) { return; }
+    $code = 'novembersale';
+    foreach ($cart->get_applied_coupons() as $applied) {
+        if (strtolower($applied) === $code) { return; }
+    }
+    try {
+        $coupon = new WC_Coupon($code);
+        if (!$coupon->get_id() || !$coupon->is_valid()) { return; }
+    } catch (Throwable $e) {
+        return;
+    }
+    $era_running = true;
+    $cart->add_discount($code);
+    $era_running = false;
+}
+add_action('woocommerce_before_calculate_totals', 'era_auto_apply_novembersale', 20, 1);
