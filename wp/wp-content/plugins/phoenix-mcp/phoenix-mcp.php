@@ -198,14 +198,15 @@ function phoenix_mcp_tools()
             'callback'    => 'phoenix_mcp_tool_create_post',
         ),
         'create_page' => array(
-            'description' => 'Create a WordPress page with an explicit slug. Defaults to draft.',
+            'description' => 'Create a WordPress page with an explicit slug. Defaults to draft. Set make_posts_page to also designate the new page as the posts index (page_for_posts option).',
             'inputSchema' => array(
                 'type' => 'object',
                 'properties' => array(
-                    'title'   => array('type' => 'string'),
-                    'content' => array('type' => 'string'),
-                    'slug'    => array('type' => 'string', 'description' => 'URL slug, e.g. about.'),
-                    'status'  => array('type' => 'string', 'description' => 'draft or publish. Default draft.'),
+                    'title'           => array('type' => 'string'),
+                    'content'         => array('type' => 'string'),
+                    'slug'            => array('type' => 'string', 'description' => 'URL slug, e.g. about.'),
+                    'status'          => array('type' => 'string', 'description' => 'draft or publish. Default draft.'),
+                    'make_posts_page' => array('type' => 'boolean', 'description' => 'When true, set this page as the posts page (page_for_posts). Does not change the front page setting.'),
                 ),
                 'required' => array('title', 'slug'),
             ),
@@ -286,6 +287,43 @@ function phoenix_mcp_tools()
                 'required' => array('id', 'image_urls'),
             ),
             'callback'    => 'phoenix_mcp_tool_wc_set_product_images',
+        ),
+        'wc_rebuild_variable_product' => array(
+            'description' => 'Rebuild a WooCommerce product as a variable product: set product-level variation attributes, delete any existing variations, and create one purchasable variation per entry (regular price, in stock, stock not managed), storing the Printify variant ID in variation meta key printify_variant_id. With append=true, existing variations are kept and entries whose printify_variant_id is already present are skipped (for chunked rebuilds).',
+            'inputSchema' => array(
+                'type'       => 'object',
+                'properties' => array(
+                    'id'         => array('type' => 'integer'),
+                    'attributes' => array(
+                        'type'        => 'array',
+                        'description' => 'Variation attributes: [{name, options: [..]}].',
+                        'items'       => array(
+                            'type'       => 'object',
+                            'properties' => array(
+                                'name'    => array('type' => 'string'),
+                                'options' => array('type' => 'array', 'items' => array('type' => 'string')),
+                            ),
+                            'required' => array('name', 'options'),
+                        ),
+                    ),
+                    'variations' => array(
+                        'type'        => 'array',
+                        'description' => 'One entry per variation: {attributes: {AttributeName: value, ..}, price: "12.34", printify_variant_id: 123}.',
+                        'items'       => array(
+                            'type'       => 'object',
+                            'properties' => array(
+                                'attributes'          => array('type' => 'object'),
+                                'price'               => array('type' => 'string'),
+                                'printify_variant_id' => array('type' => 'integer'),
+                            ),
+                            'required' => array('attributes', 'price'),
+                        ),
+                    ),
+                    'append'     => array('type' => 'boolean', 'description' => 'Keep existing variations and only add missing ones (matched by printify_variant_id). Default false.'),
+                ),
+                'required' => array('id', 'attributes', 'variations'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_rebuild_variable_product',
         ),
         'wc_list_categories' => array(
             'description' => 'List WooCommerce product categories (including empty ones), paginated.',
@@ -452,11 +490,17 @@ function phoenix_mcp_tool_create_page($args)
     if (is_wp_error($post_id)) {
         return $post_id;
     }
+    $posts_page = false;
+    if (!empty($args['make_posts_page'])) {
+        update_option('page_for_posts', $post_id);
+        $posts_page = ((int) get_option('page_for_posts') === (int) $post_id);
+    }
     return array(
-        'id'     => $post_id,
-        'title'  => get_the_title($post_id),
-        'status' => get_post_status($post_id),
-        'link'   => get_permalink($post_id),
+        'id'         => $post_id,
+        'title'      => get_the_title($post_id),
+        'status'     => get_post_status($post_id),
+        'link'       => get_permalink($post_id),
+        'posts_page' => $posts_page,
     );
 }
 
@@ -611,6 +655,138 @@ function phoenix_mcp_tool_wc_update_product($args)
     }
     $product->save();
     return phoenix_mcp_product_summary($product);
+}
+
+function phoenix_mcp_tool_wc_rebuild_variable_product($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('edit_products')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot edit products.');
+    }
+    $product_id = (int) $args['id'];
+    $existing   = wc_get_product($product_id);
+    if (!$existing) {
+        return new WP_Error('phoenix_mcp_not_found', 'No product with that ID.');
+    }
+    if (empty($args['attributes']) || !is_array($args['attributes'])) {
+        return new WP_Error('phoenix_mcp_bad_args', 'attributes must be a non-empty array.');
+    }
+    if (empty($args['variations']) || !is_array($args['variations'])) {
+        return new WP_Error('phoenix_mcp_bad_args', 'variations must be a non-empty array.');
+    }
+    $append = !empty($args['append']);
+
+    // Build product-level attributes used for variations.
+    $attributes = array();
+    $position   = 0;
+    foreach ($args['attributes'] as $attr) {
+        $name    = isset($attr['name']) ? sanitize_text_field($attr['name']) : '';
+        $options = array();
+        if (!empty($attr['options']) && is_array($attr['options'])) {
+            foreach ($attr['options'] as $opt) {
+                $opt = sanitize_text_field($opt);
+                if ($opt !== '') {
+                    $options[] = $opt;
+                }
+            }
+        }
+        if ($name === '' || !$options) {
+            continue;
+        }
+        $attribute = new WC_Product_Attribute();
+        $attribute->set_id(0);
+        $attribute->set_name($name);
+        $attribute->set_options($options);
+        $attribute->set_position($position++);
+        $attribute->set_visible(true);
+        $attribute->set_variation(true);
+        $attributes[] = $attribute;
+    }
+    if (!$attributes) {
+        return new WP_Error('phoenix_mcp_bad_args', 'No usable attributes.');
+    }
+
+    // Convert to a variable product and save attributes first so variation
+    // attribute keys resolve against the parent.
+    $product = new WC_Product_Variable($product_id);
+    $product->set_attributes($attributes);
+    $product->save();
+    wp_set_object_terms($product_id, 'variable', 'product_type');
+
+    $existing_variation_ids = get_posts(array(
+        'post_type'      => 'product_variation',
+        'post_parent'    => $product_id,
+        'posts_per_page' => -1,
+        'post_status'    => 'any',
+        'fields'         => 'ids',
+    ));
+
+    $seen_printify_ids = array();
+    if ($append) {
+        foreach ($existing_variation_ids as $old_id) {
+            $pf = get_post_meta($old_id, 'printify_variant_id', true);
+            if ($pf !== '' && $pf !== false) {
+                $seen_printify_ids[(int) $pf] = true;
+            }
+        }
+    } else {
+        foreach ($existing_variation_ids as $old_id) {
+            wp_delete_post($old_id, true);
+        }
+    }
+
+    $created = 0;
+    $skipped = 0;
+    foreach ($args['variations'] as $v) {
+        if (empty($v['attributes']) || !is_array($v['attributes']) || !isset($v['price'])) {
+            continue;
+        }
+        $pf_id = isset($v['printify_variant_id']) ? (int) $v['printify_variant_id'] : 0;
+        if ($append && $pf_id && isset($seen_printify_ids[$pf_id])) {
+            $skipped++;
+            continue;
+        }
+        $variation_attributes = array();
+        foreach ($v['attributes'] as $attr_name => $attr_value) {
+            $variation_attributes[sanitize_title($attr_name)] = sanitize_text_field($attr_value);
+        }
+        $variation = new WC_Product_Variation();
+        $variation->set_parent_id($product_id);
+        $variation->set_status('publish');
+        $variation->set_attributes($variation_attributes);
+        $variation->set_regular_price(wc_format_decimal($v['price']));
+        $variation->set_manage_stock(false);
+        $variation->set_stock_status('instock');
+        $variation_id = $variation->save();
+        if ($variation_id) {
+            $created++;
+            if ($pf_id) {
+                update_post_meta($variation_id, 'printify_variant_id', $pf_id);
+                $seen_printify_ids[$pf_id] = true;
+            }
+        }
+    }
+
+    // Re-sync the parent (price range and stock status come from variations).
+    $fresh = wc_get_product($product_id);
+    if ($fresh) {
+        $fresh->save();
+    }
+    $count = get_posts(array(
+        'post_type'      => 'product_variation',
+        'post_parent'    => $product_id,
+        'posts_per_page' => -1,
+        'post_status'    => 'publish',
+        'fields'         => 'ids',
+    ));
+    $summary                   = phoenix_mcp_product_summary(wc_get_product($product_id));
+    $summary['type']           = 'variable';
+    $summary['variation_count'] = count($count);
+    $summary['created']        = $created;
+    $summary['skipped']        = $skipped;
+    return $summary;
 }
 
 function phoenix_mcp_tool_wc_set_product_images($args)
