@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.4.0
+ * Version: 1.4.1
  * Author: Phoenix
  */
 
@@ -89,7 +89,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.4.0'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.4.1'),
             ));
 
         case 'ping':
@@ -2597,17 +2597,31 @@ function phoenix_mcp_tool_wc_delete_category($args)
 
 function phoenix_mcp_attribute_summary($attribute)
 {
-    $taxonomy = wc_attribute_taxonomy_name_by_id((int) $attribute->attribute_id);
+    // Accepts both shapes: wc_get_attribute_taxonomies() items
+    // (attribute_id/attribute_label/...) and wc_get_attribute() results
+    // (id/name/slug/...).
+    $id       = isset($attribute->attribute_id) ? (int) $attribute->attribute_id : (int) $attribute->id;
+    $taxonomy = wc_attribute_taxonomy_name_by_id($id);
     $count    = $taxonomy ? wp_count_terms(array('taxonomy' => $taxonomy, 'hide_empty' => false)) : 0;
     return array(
-        'id'        => (int) $attribute->attribute_id,
-        'name'      => $attribute->attribute_label,
-        'slug'      => $attribute->attribute_name,
+        'id'        => $id,
+        'name'      => isset($attribute->attribute_label) ? $attribute->attribute_label : $attribute->name,
+        'slug'      => isset($attribute->attribute_name) ? $attribute->attribute_name : $attribute->slug,
         'taxonomy'  => $taxonomy,
-        'type'      => $attribute->attribute_type,
-        'order_by'  => $attribute->attribute_orderby,
+        'type'      => isset($attribute->attribute_type) ? $attribute->attribute_type : $attribute->type,
+        'order_by'  => isset($attribute->attribute_orderby) ? $attribute->attribute_orderby : $attribute->order_by,
         'terms'     => is_wp_error($count) ? 0 : (int) $count,
     );
+}
+
+function phoenix_mcp_attribute_by_id($attribute_id)
+{
+    foreach (wc_get_attribute_taxonomies() as $attribute) {
+        if ((int) $attribute->attribute_id === (int) $attribute_id) {
+            return $attribute;
+        }
+    }
+    return null;
 }
 
 function phoenix_mcp_tool_wc_list_attributes($args)
@@ -2644,8 +2658,8 @@ function phoenix_mcp_tool_wc_create_attribute($args)
     if (function_exists('wc_register_attribute_taxonomy')) {
         wc_register_attribute_taxonomy();
     }
-    $attribute = wc_get_attribute($id);
-    return $attribute ? phoenix_mcp_attribute_summary($attribute) : array('id' => (int) $id);
+    $attribute = phoenix_mcp_attribute_by_id($id);
+    return $attribute ? phoenix_mcp_attribute_summary($attribute) : array('id' => (int) $id, 'created' => true);
 }
 
 function phoenix_mcp_tool_wc_update_attribute($args)
@@ -2671,7 +2685,7 @@ function phoenix_mcp_tool_wc_update_attribute($args)
     if (is_wp_error($result)) {
         return $result;
     }
-    $fresh = wc_get_attribute($id);
+    $fresh = phoenix_mcp_attribute_by_id($id);
     return $fresh ? phoenix_mcp_attribute_summary($fresh) : array('id' => $id, 'updated' => true);
 }
 
@@ -2684,7 +2698,7 @@ function phoenix_mcp_tool_wc_delete_attribute($args)
         return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot manage product attributes.');
     }
     $id = (int) $args['id'];
-    if (!wc_get_attribute($id)) {
+    if (!phoenix_mcp_attribute_by_id($id)) {
         return new WP_Error('phoenix_mcp_not_found', 'No attribute with that ID.');
     }
     if (!wc_delete_attribute($id)) {
@@ -3743,14 +3757,35 @@ function phoenix_mcp_tool_wc_delete_shipping_method($args)
 
 // --- Tax rates ---
 
+function phoenix_mcp_tax_rate_locations($rate_id)
+{
+    // Postcodes and cities live in the locations table, not the rates table.
+    global $wpdb;
+    $rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT location_code, location_type FROM {$wpdb->prefix}woocommerce_tax_rate_locations WHERE tax_rate_id = %d",
+        $rate_id
+    ));
+    $found = array('postcode' => array(), 'city' => array());
+    foreach ($rows ?: array() as $loc) {
+        if (isset($found[$loc->location_type])) {
+            $found[$loc->location_type][] = $loc->location_code;
+        }
+    }
+    return array(
+        'postcode' => implode('; ', $found['postcode']),
+        'city'     => implode('; ', $found['city']),
+    );
+}
+
 function phoenix_mcp_tax_rate_summary($row)
 {
+    $loc = phoenix_mcp_tax_rate_locations((int) $row->tax_rate_id);
     return array(
         'id'       => (int) $row->tax_rate_id,
         'country'  => $row->tax_rate_country,
         'state'    => $row->tax_rate_state,
-        'postcode' => $row->tax_rate_postcode,
-        'city'     => $row->tax_rate_city,
+        'postcode' => $loc['postcode'],
+        'city'     => $loc['city'],
         'rate'     => $row->tax_rate,
         'name'     => $row->tax_rate_name,
         'priority' => (int) $row->tax_rate_priority,
@@ -3822,7 +3857,17 @@ function phoenix_mcp_tool_wc_create_tax_rate($args)
         'tax_rate_shipping' => 1,
         'tax_rate_class'    => '',
     ), $data);
-    $id = WC_Tax::insert_tax_rate((object) $data);
+    if (!method_exists('WC_Tax', '_insert_tax_rate')) {
+        return new WP_Error('phoenix_mcp_unavailable', 'This WooCommerce version cannot insert tax rates programmatically.');
+    }
+    // Empty postcode/city would create empty location rows; omit instead.
+    if (isset($data['tax_rate_postcode']) && $data['tax_rate_postcode'] === '') {
+        unset($data['tax_rate_postcode']);
+    }
+    if (isset($data['tax_rate_city']) && $data['tax_rate_city'] === '') {
+        unset($data['tax_rate_city']);
+    }
+    $id = WC_Tax::_insert_tax_rate((object) $data);
     if (!$id) {
         return new WP_Error('phoenix_mcp_create_failed', 'Could not insert the tax rate.');
     }
@@ -3849,7 +3894,10 @@ function phoenix_mcp_tool_wc_update_tax_rate($args)
     if (!$data) {
         return new WP_Error('phoenix_mcp_no_changes', 'Nothing to update.');
     }
-    WC_Tax::update_tax_rate($id, (object) array_merge($row, $data));
+    if (!method_exists('WC_Tax', '_update_tax_rate')) {
+        return new WP_Error('phoenix_mcp_unavailable', 'This WooCommerce version cannot update tax rates programmatically.');
+    }
+    WC_Tax::_update_tax_rate($id, (object) array_merge($row, $data));
     $fresh = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}woocommerce_tax_rates WHERE tax_rate_id = %d", $id));
     return phoenix_mcp_tax_rate_summary($fresh);
 }
@@ -3868,7 +3916,10 @@ function phoenix_mcp_tool_wc_delete_tax_rate($args)
     if (!$row) {
         return new WP_Error('phoenix_mcp_not_found', 'No tax rate with that ID.');
     }
-    WC_Tax::delete_tax_rate($id);
+    if (!method_exists('WC_Tax', '_delete_tax_rate')) {
+        return new WP_Error('phoenix_mcp_unavailable', 'This WooCommerce version cannot delete tax rates programmatically.');
+    }
+    WC_Tax::_delete_tax_rate($id);
     $gone = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}woocommerce_tax_rates WHERE tax_rate_id = %d", $id));
     if ($gone) {
         return new WP_Error('phoenix_mcp_delete_failed', 'Tax rate still exists after delete.');
