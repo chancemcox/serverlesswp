@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.4.1
+ * Version: 1.4.2
  * Author: Phoenix
  */
 
@@ -89,7 +89,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.4.1'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.4.2'),
             ));
 
         case 'ping':
@@ -3867,7 +3867,7 @@ function phoenix_mcp_tool_wc_create_tax_rate($args)
     if (isset($data['tax_rate_city']) && $data['tax_rate_city'] === '') {
         unset($data['tax_rate_city']);
     }
-    $id = WC_Tax::_insert_tax_rate((object) $data);
+    $id = WC_Tax::_insert_tax_rate($data);
     if (!$id) {
         return new WP_Error('phoenix_mcp_create_failed', 'Could not insert the tax rate.');
     }
@@ -3897,7 +3897,7 @@ function phoenix_mcp_tool_wc_update_tax_rate($args)
     if (!method_exists('WC_Tax', '_update_tax_rate')) {
         return new WP_Error('phoenix_mcp_unavailable', 'This WooCommerce version cannot update tax rates programmatically.');
     }
-    WC_Tax::_update_tax_rate($id, (object) array_merge($row, $data));
+    WC_Tax::_update_tax_rate($id, array_merge($row, $data));
     $fresh = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}woocommerce_tax_rates WHERE tax_rate_id = %d", $id));
     return phoenix_mcp_tax_rate_summary($fresh);
 }
