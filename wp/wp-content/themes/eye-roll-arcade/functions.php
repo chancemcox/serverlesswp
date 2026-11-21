@@ -24,7 +24,7 @@ add_action('after_setup_theme', 'era_setup');
 remove_action('woocommerce_sidebar', 'woocommerce_get_sidebar', 10);
 
 function era_assets() {
-    wp_enqueue_style('era-style', get_stylesheet_uri(), array(), '1.0.2');
+    wp_enqueue_style('era-style', get_stylesheet_uri(), array(), '1.0.3');
 }
 add_action('wp_enqueue_scripts', 'era_assets');
 

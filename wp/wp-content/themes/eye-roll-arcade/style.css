@@ -280,3 +280,61 @@ img{max-width:100%;height:auto;display:block}
   .brand .brand-name{font-size:.86rem}
   .main-nav a{padding:7px 9px;font-size:.76rem}
 }
+
+/* -------------------------------------------------------------------------
+ * Motion layer (2026-11-21): a more modern FEEL through movement only.
+ * Nothing in this section changes the static design — same colors,
+ * layout, fonts and spacing; at rest every page renders exactly as
+ * before. The polish is easing, timing and gentle entrances.
+ * Everything animated is transform/opacity only (no layout shift),
+ * and the whole layer is gated on prefers-reduced-motion: no-preference,
+ * so visitors who ask for reduced motion get the static site.
+ * ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference){
+  html{scroll-behavior:smooth}
+
+  /* One soft rise-and-fade as the hero arrives, then it rests. */
+  @keyframes era-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .hero{animation:era-enter .5s cubic-bezier(.22,.61,.21,1) both}
+
+  /* Scroll reveal where the browser supports scroll-driven animations.
+     Without support there is no hidden state at all — content simply
+     shows statically, exactly as before. */
+  @supports (animation-timeline: view()){
+    @keyframes era-reveal{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    .card,.post-card,.about-strip,.woocommerce ul.products li.product,.wc-block-grid__product{
+      animation:era-reveal .6s cubic-bezier(.22,.61,.21,1) both;
+      animation-timeline:view();
+      animation-range:entry 0% entry 55%;
+    }
+  }
+
+  /* Same hover end-states as before, eased more smoothly. Woo product
+     cards gain the lift the theme's own cards already had. */
+  .card{transition:transform .28s cubic-bezier(.22,.61,.21,1),box-shadow .28s cubic-bezier(.22,.61,.21,1),border-color .28s ease}
+  .btn{transition:transform .2s cubic-bezier(.22,.61,.21,1),box-shadow .2s cubic-bezier(.22,.61,.21,1)}
+  .main-nav a{transition:border-color .2s ease,color .2s ease,box-shadow .25s ease,text-shadow .25s ease}
+  .site-footer a{transition:color .2s ease}
+  .woocommerce ul.products li.product{transition:transform .28s cubic-bezier(.22,.61,.21,1),box-shadow .28s cubic-bezier(.22,.61,.21,1),border-color .28s ease}
+  .woocommerce ul.products li.product:hover{transform:translateY(-5px);border-color:var(--cyan);box-shadow:0 0 22px rgba(0,229,255,.45),0 14px 30px rgba(0,0,0,.45)}
+  .woocommerce .button,.woocommerce a.button,.woocommerce button.button{transition:transform .2s cubic-bezier(.22,.61,.21,1),box-shadow .2s cubic-bezier(.22,.61,.21,1)}
+  .woocommerce .button:hover,.woocommerce a.button:hover,.woocommerce button.button:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--cyan)}
+
+  /* Sale bar shine: a soft highlight drifts across every few seconds.
+     The bar's colors, text and layout are untouched; between sweeps it
+     looks exactly as it always has. */
+  .sale-bar{position:relative;overflow:hidden}
+  .sale-bar::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.30) 50%,transparent 58%);
+    transform:translateX(-130%);
+    animation:era-shine 6.5s ease-in-out infinite;
+  }
+  @keyframes era-shine{0%{transform:translateX(-130%)}16%{transform:translateX(130%)}100%{transform:translateX(130%)}}
+}
+
+/* Keyboard focus gets a clear ring (invisible to mouse users, so the
+   resting appearance is unchanged). */
+a:focus-visible,.btn:focus-visible,.woocommerce .button:focus-visible,button:focus-visible,input:focus-visible{
+  outline:3px solid var(--cyan);outline-offset:3px;
+}
