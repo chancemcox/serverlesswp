@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.4.2
+ * Version: 1.4.3
  * Author: Phoenix
  */
 
@@ -89,7 +89,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.4.2'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.4.3'),
             ));
 
         case 'ping':
@@ -563,7 +563,7 @@ function phoenix_mcp_tools()
             'callback'    => 'phoenix_mcp_tool_wc_list_variations',
         ),
         'wc_update_variation' => array(
-            'description' => 'Update a single product variation: regular price, sale price, stock quantity, stock status, status, SKU, and/or description.',
+            'description' => 'Update a single product variation: regular price, sale price, stock quantity, stock status, status, SKU, description, and/or image (image_id, an attachment ID; 0 clears the variation image).',
             'inputSchema' => array(
                 'type' => 'object',
                 'properties' => array(
@@ -575,6 +575,7 @@ function phoenix_mcp_tools()
                     'status'         => array('type' => 'string', 'description' => 'publish (enabled) or private (disabled).'),
                     'sku'            => array('type' => 'string'),
                     'description'    => array('type' => 'string'),
+                    'image_id'       => array('type' => 'integer', 'description' => 'Attachment ID to set as the variation image; 0 clears it.'),
                 ),
                 'required' => array('id'),
             ),
@@ -1522,6 +1523,7 @@ function phoenix_mcp_tool_wc_get_product($args)
     $data['categories']        = wp_get_post_terms($product->get_id(), 'product_cat', array('fields' => 'names'));
     $image_id                  = $product->get_image_id();
     $data['image']             = $image_id ? wp_get_attachment_url($image_id) : null;
+    $data['image_id']          = $image_id ? (int) $image_id : 0;
     return $data;
 }
 
@@ -2378,6 +2380,7 @@ function phoenix_mcp_tool_wc_delete_product($args)
 
 function phoenix_mcp_variation_summary($variation)
 {
+    $image_id = $variation->get_image_id();
     return array(
         'id'             => $variation->get_id(),
         'parent_id'      => $variation->get_parent_id(),
@@ -2389,6 +2392,8 @@ function phoenix_mcp_variation_summary($variation)
         'stock_status'   => $variation->get_stock_status(),
         'status'         => $variation->get_status(),
         'sku'            => $variation->get_sku(),
+        'image_id'       => $image_id ? (int) $image_id : 0,
+        'image_url'      => $image_id ? wp_get_attachment_url($image_id) : null,
     );
 }
 
@@ -2447,6 +2452,13 @@ function phoenix_mcp_tool_wc_update_variation($args)
     }
     if (isset($args['description'])) {
         $variation->set_description(wp_kses_post($args['description']));
+    }
+    if (isset($args['image_id'])) {
+        $image_id = (int) $args['image_id'];
+        if ($image_id !== 0 && get_post_type($image_id) !== 'attachment') {
+            return new WP_Error('phoenix_mcp_bad_image', 'image_id is not an existing attachment.');
+        }
+        $variation->set_image_id($image_id);
     }
     $variation->save();
     // Keep the parent's price range in sync.
