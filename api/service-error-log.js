@@ -16,8 +16,10 @@
  * SQLITE_S3_REGION).
  *
  * Hard rules:
- *  - DEV ONLY: unless this deployment is the dev branch, every export is
- *    a complete no-op.
+ *  - DEV ONLY: unless this deployment is the dev branch (primary check:
+ *    VERCEL_GIT_COMMIT_REF === 'dev') or the request arrives under a dev
+ *    hostname (serverlesswp-git-dev… or dev.apparelishoweyeroll.com),
+ *    every export is a complete no-op.
  *  - FAIL-SILENT: nothing in here ever throws, changes a status code, or
  *    alters handler behaviour. Writes are bounded by a short timeout.
  *  - No credential values are ever written into a record — only whether
@@ -26,11 +28,13 @@
 
 const crypto = require('node:crypto');
 
+const DEV_HOSTS = ['serverlesswp-git-dev', 'dev.apparelishoweyeroll.com'];
+
 function computeEnabled() {
     try {
         if (process.env['VERCEL_GIT_COMMIT_REF'] === 'dev') return true;
         const url = process.env['VERCEL_URL'] || '';
-        if (url.includes('serverlesswp-git-dev')) return true;
+        if (DEV_HOSTS.some((h) => url.includes(h))) return true;
         return false;
     } catch (e) {
         return false;
@@ -38,6 +42,22 @@ function computeEnabled() {
 }
 
 const enabled = computeEnabled();
+
+/*
+ * Per-request activation: the branch check above is primary, but once
+ * traffic arrives under the custom dev domain the deployment URL no
+ * longer tells the story — the request's own Host header does. Accept
+ * either dev hostname as a signal too.
+ */
+function activeFor(event) {
+    if (enabled) return true;
+    try {
+        const host = requestHost(event) || '';
+        return DEV_HOSTS.some((h) => host.includes(h));
+    } catch (e) {
+        return false;
+    }
+}
 
 function s3Config() {
     const bucket = process.env['SQLITE_S3_BUCKET'];
@@ -156,7 +176,7 @@ function requestHost(event) {
  */
 async function logServiceError(phase, err, extra) {
     try {
-        if (!enabled) return false;
+        if (!activeFor(extra && extra.event)) return false;
         const cfg = s3Config();
         if (!cfg) return false;
         extra = extra || {};
@@ -196,7 +216,7 @@ async function logServiceError(phase, err, extra) {
  */
 async function maybeLogErrorResponse(event, response) {
     try {
-        if (!enabled || !response || typeof response !== 'object') return;
+        if (!activeFor(event) || !response || typeof response !== 'object') return;
         const status = typeof response.statusCode === 'number'
             ? response.statusCode
             : (typeof response.status === 'number' ? response.status : null);
