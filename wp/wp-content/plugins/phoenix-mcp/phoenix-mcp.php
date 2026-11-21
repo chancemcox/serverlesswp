@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.3
+ * Version: 1.3.4
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.3'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.4'),
             ));
 
         case 'ping':
@@ -371,6 +371,15 @@ function phoenix_mcp_tools()
                 'required' => array('id'),
             ),
             'callback'    => 'phoenix_mcp_tool_trash_post',
+        ),
+        'trash_page' => array(
+            'description' => 'Move a page to the trash by page ID.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array('id' => array('type' => 'integer')),
+                'required' => array('id'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_trash_page',
         ),
         'wc_create_api_key' => array(
             'description' => 'Create a WooCommerce REST API key (read_write) for the token user and stage it server-side for delivery to Printify. The key material never leaves the server. Returns only the key ID and its last 7 characters.',
@@ -970,6 +979,27 @@ function phoenix_mcp_tool_trash_post($args)
     }
     if (!wp_trash_post($post_id)) {
         return new WP_Error('phoenix_mcp_trash_failed', 'Could not trash the post.');
+    }
+    return array(
+        'id'      => $post_id,
+        'title'   => $post->post_title,
+        'status'  => get_post_status($post_id),
+        'trashed' => true,
+    );
+}
+
+function phoenix_mcp_tool_trash_page($args)
+{
+    $post_id = (int) $args['id'];
+    $post    = get_post($post_id);
+    if (!$post || $post->post_type !== 'page') {
+        return new WP_Error('phoenix_mcp_not_found', 'No page with that ID.');
+    }
+    if (!current_user_can('delete_post', $post_id)) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot delete pages.');
+    }
+    if (!wp_trash_post($post_id)) {
+        return new WP_Error('phoenix_mcp_trash_failed', 'Could not trash the page.');
     }
     return array(
         'id'      => $post_id,
