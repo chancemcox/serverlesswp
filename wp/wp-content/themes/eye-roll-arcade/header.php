@@ -9,7 +9,6 @@
 </head>
 <body <?php body_class(); ?>>
 <?php wp_body_open(); ?>
-<div class="sale-bar">15% OFF EVERYTHING &mdash; CODE <strong>NOVEMBERSALE</strong> ENDS NOV 30</div>
 <header class="site-header">
   <div class="wrap header-in">
     <a class="brand" href="<?php echo esc_url(home_url('/')); ?>">
