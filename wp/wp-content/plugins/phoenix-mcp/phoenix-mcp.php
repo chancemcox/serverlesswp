@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Phoenix
  */
 
@@ -87,7 +87,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.1.0'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.2.0'),
             ));
 
         case 'ping':
@@ -248,6 +248,28 @@ function phoenix_mcp_tools()
                 'required' => array('id'),
             ),
             'callback'    => 'phoenix_mcp_tool_wc_update_product',
+        ),
+        'wc_create_api_key' => array(
+            'description' => 'Create a WooCommerce REST API key (read_write) for the token user and stage it server-side for delivery to Printify. The key material never leaves the server. Returns only the key ID and its last 7 characters.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'description' => array('type' => 'string', 'description' => 'Key description shown in wp-admin. Default is Printify (via Phoenix).'),
+                ),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_create_api_key',
+        ),
+        'wc_deliver_keys' => array(
+            'description' => 'Deliver the staged WooCommerce API key to Printify by POSTing it to the callback URL from a Printify connect attempt, doing the step WooCommerce normally does. Returns Printify response status and body. Clears the staged copy only on success.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'callback_url' => array('type' => 'string', 'description' => 'The full callback_url value from the Printify authorize URL.'),
+                    'user_id'      => array('type' => 'string', 'description' => 'The user_id value from the Printify authorize URL.'),
+                ),
+                'required' => array('callback_url', 'user_id'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_deliver_keys',
         ),
         'http_test' => array(
             'description' => 'Test outbound HTTPS from this server (the same mechanism WooCommerce uses to deliver API keys to Printify). Returns status code, response time and any transport error.',
@@ -490,6 +512,102 @@ function phoenix_mcp_tool_wc_list_orders($args)
         );
     }
     return $out;
+}
+
+function phoenix_mcp_tool_wc_create_api_key($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('manage_woocommerce') && !current_user_can('manage_options')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot manage WooCommerce API keys.');
+    }
+
+    global $wpdb;
+    $consumer_key    = 'ck_' . wc_rand_hash();
+    $consumer_secret = 'cs_' . wc_rand_hash();
+
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'woocommerce_api_keys',
+        array(
+            'user_id'         => get_current_user_id(),
+            'description'     => isset($args['description']) ? sanitize_text_field($args['description']) : 'Printify (via Phoenix)',
+            'permissions'     => 'read_write',
+            'consumer_key'    => wc_api_hash($consumer_key),
+            'consumer_secret' => $consumer_secret,
+            'truncated_key'   => substr($consumer_key, -7),
+        ),
+        array('%d', '%s', '%s', '%s', '%s', '%s')
+    );
+
+    if (!$inserted) {
+        return new WP_Error('phoenix_mcp_db', 'Could not create the API key: ' . $wpdb->last_error);
+    }
+
+    $key_id = (int) $wpdb->insert_id;
+
+    // Stage the one-time payload server-side so the delivery can happen in a
+    // later request, after this request's database changes have synced.
+    update_option('phoenix_mcp_pending_keys', array(
+        'key_id'          => $key_id,
+        'consumer_key'    => $consumer_key,
+        'consumer_secret' => $consumer_secret,
+    ), false);
+
+    return array(
+        'key_id'        => $key_id,
+        'truncated_key' => substr($consumer_key, -7),
+        'note'          => 'Key created and staged. Call wc_deliver_keys with the Printify callback URL and user ID.',
+    );
+}
+
+function phoenix_mcp_tool_wc_deliver_keys($args)
+{
+    $pending = get_option('phoenix_mcp_pending_keys');
+    if (!is_array($pending) || empty($pending['consumer_key'])) {
+        return new WP_Error('phoenix_mcp_no_pending', 'No staged key. Run wc_create_api_key first.');
+    }
+
+    $callback_url = esc_url_raw($args['callback_url']);
+    $payload = array(
+        'user_id'         => (string) $args['user_id'],
+        'consumer_key'    => $pending['consumer_key'],
+        'consumer_secret' => $pending['consumer_secret'],
+        'key_permissions' => 'read_write',
+    );
+
+    $start    = microtime(true);
+    $response = wp_remote_post($callback_url, array(
+        'timeout' => 30,
+        'headers' => array('Content-Type' => 'application/json'),
+        'body'    => wp_json_encode($payload),
+    ));
+    $elapsed = round(microtime(true) - $start, 2);
+
+    if (is_wp_error($response)) {
+        return array(
+            'ok'           => false,
+            'error'        => $response->get_error_message(),
+            'time_seconds' => $elapsed,
+            'key_id'       => $pending['key_id'],
+        );
+    }
+
+    $code = wp_remote_retrieve_response_code($response);
+    $body = wp_remote_retrieve_body($response);
+    $ok   = $code >= 200 && $code < 300;
+
+    if ($ok) {
+        delete_option('phoenix_mcp_pending_keys');
+    }
+
+    return array(
+        'ok'           => $ok,
+        'status_code'  => $code,
+        'time_seconds' => $elapsed,
+        'body'         => substr($body, 0, 500),
+        'key_id'       => $pending['key_id'],
+    );
 }
 
 function phoenix_mcp_tool_http_test($args)
