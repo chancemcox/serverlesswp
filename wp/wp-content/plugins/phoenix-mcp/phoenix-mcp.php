@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Phoenix MCP
  * Description: A small, self-contained MCP (Model Context Protocol) server for this site, built for Phoenix. Exposes site, content and WooCommerce tools over a single REST endpoint, authenticated by a Bearer token (stored as a SHA-256 hash, revocable in Settings -> Phoenix MCP).
- * Version: 1.3.7
+ * Version: 1.3.8
  * Author: Phoenix
  */
 
@@ -14,6 +14,7 @@ define('PHOENIX_MCP_HASH_OPTION', 'phoenix_mcp_token_hash');
 define('PHOENIX_MCP_USER_OPTION', 'phoenix_mcp_user_id');
 define('PHOENIX_MCP_PROTOCOL_VERSION', '2025-03-26');
 define('PHOENIX_MCP_SALE_COUPON_CODE_OPTION', 'era_sale_coupon_code');
+define('PHOENIX_MCP_TERMS_PAGE_OPTION', 'woocommerce_terms_page_id');
 
 /* -------------------------------------------------------------------------
  * REST route: POST /wp-json/phoenix-mcp/v1/server
@@ -88,7 +89,7 @@ function phoenix_mcp_handle_request($request)
             return phoenix_mcp_result_response($id, array(
                 'protocolVersion' => $client_version,
                 'capabilities'    => array('tools' => array('listChanged' => false)),
-                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.7'),
+                'serverInfo'      => array('name' => 'phoenix-mcp', 'version' => '1.3.8'),
             ));
 
         case 'ping':
@@ -466,6 +467,17 @@ function phoenix_mcp_tools()
                 'required' => array('code'),
             ),
             'callback'    => 'phoenix_mcp_tool_wc_set_sale_coupon',
+        ),
+        'wc_set_terms_page' => array(
+            'description' => 'Set the WooCommerce Terms and Conditions page (the woocommerce_terms_page_id option, shown in wp-admin under WooCommerce > Settings > Advanced > Page setup). The target must be an existing published WordPress page. Writes only that one option, then reads it back to verify.',
+            'inputSchema' => array(
+                'type' => 'object',
+                'properties' => array(
+                    'page_id' => array('type' => 'integer', 'description' => 'ID of the published page to designate as the Terms and Conditions page.'),
+                ),
+                'required' => array('page_id'),
+            ),
+            'callback'    => 'phoenix_mcp_tool_wc_set_terms_page',
         ),
         'activate_plugin' => array(
             'description' => 'Activate an already-installed WordPress plugin by plugin file (e.g. "era-sale-sync/era-sale-sync.php") or folder slug (e.g. "era-sale-sync"). Activation only: it cannot install, upload, deactivate, or delete plugins.',
@@ -1291,6 +1303,43 @@ function phoenix_mcp_tool_wc_set_sale_coupon($args)
         'code'            => is_string($stored) ? $stored : '',
         'sale_designated' => $stored !== '' && $stored !== false,
         'coupon'          => phoenix_mcp_coupon_summary(new WC_Coupon($id)),
+    );
+}
+
+function phoenix_mcp_tool_wc_set_terms_page($args)
+{
+    if (!phoenix_mcp_require_woo()) {
+        return new WP_Error('phoenix_mcp_no_woo', 'WooCommerce is not active.');
+    }
+    if (!current_user_can('manage_woocommerce') && !current_user_can('manage_options')) {
+        return new WP_Error('phoenix_mcp_forbidden', 'The token user cannot manage WooCommerce settings.');
+    }
+    if (!isset($args['page_id']) || !is_numeric($args['page_id'])) {
+        return new WP_Error('phoenix_mcp_bad_args', 'page_id is required.');
+    }
+    $page_id = (int) $args['page_id'];
+    $page = get_post($page_id);
+    if (!$page || $page->post_type !== 'page') {
+        return new WP_Error('phoenix_mcp_no_page', 'No WordPress page exists with ID ' . $page_id . '.');
+    }
+    if ($page->post_status !== 'publish') {
+        return new WP_Error('phoenix_mcp_page_not_published', 'Page ' . $page_id . ' is not published (status: ' . $page->post_status . ').');
+    }
+    update_option(PHOENIX_MCP_TERMS_PAGE_OPTION, $page_id);
+    $stored = (int) get_option(PHOENIX_MCP_TERMS_PAGE_OPTION, 0);
+    if ($stored !== $page_id) {
+        return new WP_Error('phoenix_mcp_terms_verify_failed', 'woocommerce_terms_page_id did not read back as ' . $page_id . ' (got ' . $stored . ').');
+    }
+    return array(
+        'option'  => PHOENIX_MCP_TERMS_PAGE_OPTION,
+        'page_id' => $stored,
+        'page'    => array(
+            'id'     => $page->ID,
+            'title'  => $page->post_title,
+            'slug'   => $page->post_name,
+            'status' => $page->post_status,
+            'url'    => get_permalink($page->ID),
+        ),
     );
 }
 
