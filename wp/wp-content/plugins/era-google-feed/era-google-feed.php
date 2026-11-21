@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ERA Google Shopping Feed
  * Description: Generates a Google Merchant Center product feed from WooCommerce products so Google Shopping stays in sync with the store on a scheduled fetch. Exposes the feed as RSS 2.0 XML (g: namespace) at /?era_google_feed=xml and at the pretty path /google-shopping-feed.xml. Read-only: this plugin never changes products, orders, or settings.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Apparel is How Eye Roll
  * License: GPL-2.0-or-later
  * Text Domain: era-google-feed
@@ -211,8 +211,13 @@ function era_google_feed_items()
     foreach ($products as $product) {
         try {
             $title = era_google_feed_clean_text($product->get_name(), 150);
+            // Descriptions are capped at 750 chars: the full WooCommerce
+            // text across ~3,100 items pushes the XML past the serverless
+            // function's ~6 MB response payload limit (verified on dev —
+            // the uncapped feed failed with FUNCTION_RESPONSE_PAYLOAD_TOO_LARGE).
             $description = era_google_feed_clean_text(
-                $product->get_description() !== '' ? $product->get_description() : $product->get_short_description()
+                $product->get_description() !== '' ? $product->get_description() : $product->get_short_description(),
+                750
             );
             if ($description === '') {
                 $description = $title;
@@ -274,12 +279,14 @@ function era_google_feed_serve()
     echo '<link>' . era_google_feed_esc(home_url('/')) . '</link>' . "\n";
     echo '<description>' . era_google_feed_esc('Product feed for Google Merchant Center, generated from WooCommerce.') . '</description>' . "\n";
     foreach ($items as $item) {
-        echo '<item>' . "\n";
+        // Compact per-item markup (no newlines between tags) keeps the
+        // whole feed comfortably under the response payload limit.
+        echo '<item>';
         foreach ($item as $tag => $value) {
             if ($value === '' || $value === null) {
                 continue;
             }
-            echo '<' . $tag . '>' . era_google_feed_esc($value) . '</' . $tag . '>' . "\n";
+            echo '<' . $tag . '>' . era_google_feed_esc($value) . '</' . $tag . '>';
         }
         echo '</item>' . "\n";
     }
