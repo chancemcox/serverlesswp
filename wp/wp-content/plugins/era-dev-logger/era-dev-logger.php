@@ -18,7 +18,8 @@ if (!defined('ABSPATH')) { exit; }
  * no hooks, no shutdown function, no network calls.
  * ---------------------------------------------------------------------- */
 $era_dev_logger_host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
-if (strpos($era_dev_logger_host, 'serverlesswp-git-dev') === false) {
+if (strpos($era_dev_logger_host, 'serverlesswp-git-dev') === false
+    && strpos($era_dev_logger_host, 'dev.apparelishoweyeroll.com') === false) {
     return;
 }
 unset($era_dev_logger_host);
