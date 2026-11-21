@@ -4,7 +4,7 @@
 <head>
 <meta charset="<?php bloginfo('charset'); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Funny dad-joke shirts, desk mats, mugs and gifts from Apparel is How Eye Roll. Shop programmer humor, 90s kid gear and Christmas jokes — printed on demand and shipped worldwide.">
+<meta name="description" content="<?php echo esc_attr(era_meta_description()); ?>">
 <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>

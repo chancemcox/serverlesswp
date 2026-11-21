@@ -97,7 +97,7 @@ $era_products = array(
 <?php
 $era_recent = new WP_Query(array('post_type' => 'post', 'posts_per_page' => 3, 'post_status' => 'publish'));
 if ($era_recent->have_posts()) : ?>
-<section class="section">
+<section class="section" id="blog">
   <div class="wrap">
     <h2>LATEST FROM THE BLOG</h2>
     <p class="sub">New drops, dumb jokes, and shop news.</p>
