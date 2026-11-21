@@ -18,7 +18,7 @@
         <li><a href="<?php echo esc_url(home_url('/product-category/dad-jokes/')); ?>">Dad jokes</a></li>
         <li><a href="<?php echo esc_url(home_url('/product-category/programmer-humor/')); ?>">Programmer humor</a></li>
         <li><a href="<?php echo esc_url(home_url('/product-category/child-of-the-90s/')); ?>">Child of the 90s</a></li>
-        <li><a href="<?php echo esc_url(home_url('/#blog')); ?>">Blog</a></li>
+        <li><a href="<?php echo esc_url(home_url('/blog/')); ?>">Blog</a></li>
         <li><a href="<?php echo esc_url(home_url('/cart/')); ?>">Cart</a></li>
         <li><a href="<?php echo esc_url(home_url('/my-account/')); ?>">My account</a></li>
       </ul>

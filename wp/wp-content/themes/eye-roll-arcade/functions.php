@@ -32,6 +32,7 @@ function era_fallback_menu() {
     echo '<li><a href="' . esc_url(home_url('/product-category/programmer-humor/')) . '">Programmer</a></li>';
     echo '<li><a href="' . esc_url(ERA_ETSY_SHOP) . '">Shop on Etsy</a></li>';
     echo '<li><a href="' . esc_url(home_url('/about/')) . '">About</a></li>';
+    echo '<li><a href="' . esc_url(home_url('/blog/')) . '">Blog</a></li>';
     echo '<li><a href="' . esc_url(home_url('/cart/')) . '">Cart</a></li>';
     echo '<li><a href="' . esc_url(home_url('/my-account/')) . '">My Account</a></li>';
     echo '</ul>';
@@ -39,6 +40,9 @@ function era_fallback_menu() {
 
 function era_menu_extra_items($items, $args) {
     if (isset($args->theme_location) && $args->theme_location === 'primary') {
+        if (strpos($items, '/blog/') === false) {
+            $items .= '<li><a href="' . esc_url(home_url('/blog/')) . '">Blog</a></li>';
+        }
         $items .= '<li><a href="' . esc_url(home_url('/cart/')) . '">Cart</a></li>';
         $items .= '<li><a href="' . esc_url(home_url('/my-account/')) . '">My Account</a></li>';
     }
