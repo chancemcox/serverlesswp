@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
-define('ERA_LOGO_URL', 'https://pub-87eb4317aae54feca2d4ef09d8bcf8a8.r2.dev/site-assets/logo-badge.png');
+define('ERA_LOGO_URL', 'https://pub-87eb4317aae54feca2d4ef09d8bcf8a8.r2.dev/site-assets/logo-badge.webp');
 define('ERA_ETSY_SHOP', 'https://www.etsy.com/shop/ApparelisHowEyeRollU');
 
 function era_setup() {

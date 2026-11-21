@@ -13,6 +13,7 @@ Text Domain: eye-roll-arcade
   --bg-2:#1d0b38;
   --card:#200e42;
   --pink:#ff2e88;
+  --pink-btn:#d6006d;
   --cyan:#00e5ff;
   --yellow:#ffe600;
   --purple:#8b3dff;
@@ -119,7 +120,7 @@ img{max-width:100%;height:auto;display:block}
   transition:transform .12s ease, box-shadow .12s ease;
 }
 .btn:hover{transform:translate(-2px,-2px)}
-.btn-pink{background:var(--pink);color:#fff;box-shadow:5px 5px 0 var(--cyan)}
+.btn-pink{background:var(--pink-btn);color:#fff;box-shadow:5px 5px 0 var(--cyan)}
 .btn-pink:hover{box-shadow:8px 8px 0 var(--cyan)}
 .btn-ghost{background:transparent;color:var(--cyan);border-color:var(--cyan);box-shadow:5px 5px 0 rgba(255,46,136,.8)}
 .btn-ghost:hover{box-shadow:8px 8px 0 rgba(255,46,136,.8)}
@@ -194,7 +195,7 @@ img{max-width:100%;height:auto;display:block}
 
 /* WooCommerce basics */
 .woocommerce .button,.woocommerce a.button,.woocommerce button.button{
-  background:var(--pink)!important;color:#fff!important;border:3px solid var(--black)!important;
+  background:var(--pink-btn)!important;color:#fff!important;border:3px solid var(--black)!important;
   border-radius:12px!important;font-family:"Bungee",cursive;font-weight:400!important;
   box-shadow:4px 4px 0 var(--cyan);
 }

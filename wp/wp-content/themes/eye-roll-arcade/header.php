@@ -4,6 +4,7 @@
 <head>
 <meta charset="<?php bloginfo('charset'); ?>">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Funny dad-joke shirts, desk mats, mugs and gifts from Apparel is How Eye Roll. Shop programmer humor, 90s kid gear and Christmas jokes — printed on demand and shipped worldwide.">
 <?php wp_head(); ?>
 </head>
 <body <?php body_class(); ?>>
@@ -12,7 +13,7 @@
 <header class="site-header">
   <div class="wrap header-in">
     <a class="brand" href="<?php echo esc_url(home_url('/')); ?>">
-      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo" width="810" height="810">
+      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo" width="600" height="600">
       <span class="brand-name">APPAREL IS<br>HOW EYE ROLL</span>
     </a>
     <nav class="main-nav" aria-label="Primary">

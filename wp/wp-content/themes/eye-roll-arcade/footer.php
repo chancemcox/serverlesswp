@@ -4,7 +4,7 @@
   <div class="wrap footer-in">
     <div>
       <div class="footer-brand">
-        <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo" width="810" height="810">
+        <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll logo" width="600" height="600">
         <div>
           <h4>APPAREL IS HOW EYE ROLL</h4>
           <p style="color:var(--muted);margin:0">Funny shirts, desk mats &amp; gifts for dads, programmers, and proud 90s kids. Printed on demand, shipped worldwide.</p>

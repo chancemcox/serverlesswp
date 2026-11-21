@@ -58,7 +58,7 @@ $era_products = array(
       </div>
     </div>
     <div class="hero-badge">
-      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll badge logo" width="810" height="810" fetchpriority="high">
+      <img src="<?php echo esc_url(ERA_LOGO_URL); ?>" alt="Apparel is How Eye Roll badge logo" width="600" height="600" fetchpriority="high">
     </div>
   </div>
 </section>
