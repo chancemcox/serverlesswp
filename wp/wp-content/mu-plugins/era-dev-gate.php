@@ -2,11 +2,14 @@
 /**
  * Plugin Name: ERA Dev Gate
  * Description: Password gate + noindex for the DEV deployment only. Inert on any other host.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
-if (!isset($_SERVER['HTTP_HOST']) || strpos($_SERVER['HTTP_HOST'], 'serverlesswp-git-dev') === false) {
+$era_dev_gate_host = isset($_SERVER['HTTP_HOST']) ? (string) $_SERVER['HTTP_HOST'] : '';
+if (strpos($era_dev_gate_host, 'serverlesswp-git-dev') === false
+    && strpos($era_dev_gate_host, 'dev.apparelishoweyeroll.com') === false) {
     return;
 }
+unset($era_dev_gate_host);
 
 define('ERA_DEV_GATE_PW_HASH', '23d60b202c0c89094b7d011621318a96ca4e556085121d8be94a9e3826450839');
 define('ERA_DEV_GATE_TOKEN', '72ff76f33c120da769bc68240309c70d0fa746153bbf67238a60433786f1f906');
