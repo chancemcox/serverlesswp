@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ERA Sale Sync
  * Description: Keeps the WordPress storefront in step with the current Etsy sale. Auto-applies the one designated sale coupon in the cart (so WordPress matches Etsy's automatic sale, no code typing) and renders the top sale bar from that coupon's live data. The designated coupon code lives in the era_sale_coupon_code option, managed by Phoenix MCP (wc_set_sale_coupon) and the daily Etsy <-> WooCommerce sync. When no sale is designated, or the designated coupon has expired, nothing is applied and no bar is shown.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Apparel is How Eye Roll
  * License: GPL-2.0-or-later
  * Text Domain: era-sale-sync
@@ -12,7 +12,8 @@ if (!defined('ABSPATH')) { exit; }
 
 define('ERA_SALE_SYNC_OPTION', 'era_sale_coupon_code');
 define('ERA_SALE_SYNC_FALLBACK_CODE', 'novembersale');
-define('ERA_SALE_SYNC_CRON_HOOK', 'era_sale_sync_daily_check');
+define('ERA_SALE_SYNC_CRON_HOOK', 'era_sale_sync_hourly_check');
+define('ERA_SALE_SYNC_LEGACY_CRON_HOOK', 'era_sale_sync_daily_check');
 
 /* -------------------------------------------------------------------------
  * Designated sale coupon
@@ -146,14 +147,14 @@ function era_sale_sync_render_sale_bar()
 add_action('wp_body_open', 'era_sale_sync_render_sale_bar', 1);
 
 /* -------------------------------------------------------------------------
- * 3. Self-cleanup: a daily WP-Cron check inside the plugin.
+ * 3. Self-cleanup: an hourly WP-Cron check inside the plugin.
  *
  * If the designated coupon has expired, been deleted/unpublished, or hit
  * its usage limit, clear the designation to an explicit "no sale" so the
  * sale bar and the auto-apply stop on their own, even if no external
  * sync ever runs again.
  * ---------------------------------------------------------------------- */
-function era_sale_sync_daily_check()
+function era_sale_sync_hourly_check()
 {
     if (!class_exists('WC_Coupon')) { return; } // WooCommerce inactive: do nothing.
     if (era_sale_sync_designated_code() === '') { return; } // Already no-sale.
@@ -161,15 +162,25 @@ function era_sale_sync_daily_check()
         update_option(ERA_SALE_SYNC_OPTION, '');
     }
 }
-add_action(ERA_SALE_SYNC_CRON_HOOK, 'era_sale_sync_daily_check');
+add_action(ERA_SALE_SYNC_CRON_HOOK, 'era_sale_sync_hourly_check');
+add_action(ERA_SALE_SYNC_LEGACY_CRON_HOOK, 'era_sale_sync_hourly_check');
 
-function era_sale_sync_schedule_daily_check()
+function era_sale_sync_schedule_hourly_check()
 {
-    if (!wp_next_scheduled(ERA_SALE_SYNC_CRON_HOOK)) {
-        wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', ERA_SALE_SYNC_CRON_HOOK);
+    if (wp_next_scheduled(ERA_SALE_SYNC_LEGACY_CRON_HOOK)) {
+        wp_clear_scheduled_hook(ERA_SALE_SYNC_LEGACY_CRON_HOOK);
+    }
+    $next = wp_next_scheduled(ERA_SALE_SYNC_CRON_HOOK);
+    if (!$next) {
+        wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', ERA_SALE_SYNC_CRON_HOOK);
+        return;
+    }
+    if (wp_get_schedule(ERA_SALE_SYNC_CRON_HOOK) !== 'hourly') {
+        wp_unschedule_event($next, ERA_SALE_SYNC_CRON_HOOK);
+        wp_schedule_event(time() + HOUR_IN_SECONDS, 'hourly', ERA_SALE_SYNC_CRON_HOOK);
     }
 }
-add_action('init', 'era_sale_sync_schedule_daily_check');
+add_action('init', 'era_sale_sync_schedule_hourly_check');
 
 /* -------------------------------------------------------------------------
  * Activation / deactivation
@@ -181,13 +192,15 @@ function era_sale_sync_activate()
     if (get_option(ERA_SALE_SYNC_OPTION, false) === false) {
         update_option(ERA_SALE_SYNC_OPTION, ERA_SALE_SYNC_FALLBACK_CODE);
     }
-    era_sale_sync_schedule_daily_check();
+    wp_clear_scheduled_hook(ERA_SALE_SYNC_LEGACY_CRON_HOOK);
+    era_sale_sync_schedule_hourly_check();
 }
 register_activation_hook(__FILE__, 'era_sale_sync_activate');
 
 function era_sale_sync_deactivate()
 {
     wp_clear_scheduled_hook(ERA_SALE_SYNC_CRON_HOOK);
+    wp_clear_scheduled_hook(ERA_SALE_SYNC_LEGACY_CRON_HOOK);
     // The era_sale_coupon_code option is intentionally left in place.
 }
 register_deactivation_hook(__FILE__, 'era_sale_sync_deactivate');
