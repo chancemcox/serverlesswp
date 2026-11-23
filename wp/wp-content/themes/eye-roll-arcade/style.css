@@ -382,6 +382,7 @@ a:focus-visible,.btn:focus-visible,.woocommerce .button:focus-visible,button:foc
 /* Dropdowns: full-width on the product form, a real tap height, and a
    cyan chevron in place of the browser's default arrow. */
 .woocommerce div.product form.cart .variations{width:100%}
+.woocommerce div.product form.cart .variations th.label{white-space:nowrap;vertical-align:middle}
 .woocommerce div.product form.cart .variations td.value{width:100%}
 .woocommerce div.product form.cart .variations select,
 .woocommerce form select{
