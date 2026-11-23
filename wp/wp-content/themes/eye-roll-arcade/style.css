@@ -515,9 +515,21 @@ body .select2-container--default .select2-search--dropdown .select2-search__fiel
 .wc-block-components-form .wc-block-components-text-input label{
   color:var(--muted);
 }
-.wc-block-components-form .wc-block-components-text-input input:focus,
+/* Focus is restated per input type: WooCommerce's own :focus rule is
+   written at that weight and would otherwise flip the field back to
+   white while the shopper types. */
+.wc-block-components-form .wc-block-components-text-input input[type="text"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="email"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="tel"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="number"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="password"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="search"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="url"]:focus,
+.wc-block-components-form .wc-block-components-text-input input[type="date"]:focus,
 .wc-block-checkout textarea.wc-block-components-textarea:focus,
 .wc-block-cart textarea.wc-block-components-textarea:focus{
+  background-color:var(--bg-2);
+  color:var(--ink);
   border-color:var(--cyan);
   box-shadow:0 0 0 3px rgba(0,229,255,.25),inset 0 2px 5px rgba(0,0,0,.45);
   outline:none;
@@ -545,13 +557,13 @@ body .select2-container--default .select2-search--dropdown .select2-search__fiel
 .wc-blocks-components-select .wc-blocks-components-select__label{color:var(--muted)}
 .wc-blocks-components-select .wc-blocks-components-select__expand{fill:var(--cyan)}
 /* Block checkbox: same surface + border, pink fill when ticked. */
-.wc-block-components-checkbox .wc-block-components-checkbox__input{
+.wc-block-components-checkbox .wc-block-components-checkbox__input[type="checkbox"]{
   background-color:var(--bg-2);
   border:2px solid var(--purple);
   border-radius:6px;
   accent-color:var(--pink);
 }
-.wc-block-components-checkbox .wc-block-components-checkbox__input:checked{
+.wc-block-components-checkbox .wc-block-components-checkbox__input[type="checkbox"]:checked{
   background-color:var(--pink-btn);
   border-color:var(--pink-btn);
 }
