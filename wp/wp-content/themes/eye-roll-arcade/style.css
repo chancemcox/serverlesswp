@@ -338,3 +338,182 @@ img{max-width:100%;height:auto;display:block}
 a:focus-visible,.btn:focus-visible,.woocommerce .button:focus-visible,button:focus-visible,input:focus-visible{
   outline:3px solid var(--cyan);outline-offset:3px;
 }
+
+/* -------------------------------------------------------------------------
+ * Form fields (2026-11-23): variation dropdowns, the quantity box, and
+ * the cart / checkout / account form fields. None of these controls had
+ * any theme styling — WooCommerce's stylesheets set layout only, no
+ * colors — so they fell back to browser defaults: white boxes, black
+ * or pale text, ~17px-tall selects on the dark arcade background.
+ * The rules below dress them in the theme's own language: the deep
+ * purple surface (--bg-2), a 2px neon-purple border and 12px corners
+ * like the buttons and cards, ink text with the theme's muted tone
+ * for placeholders and labels, a cyan chevron and a cyan focus glow.
+ * Colors, fonts and layout elsewhere are untouched. The variation
+ * <select> elements stay real selects — WooCommerce's variation
+ * script and its get_variation AJAX drive them directly.
+ * ---------------------------------------------------------------------- */
+
+/* Shared treatment: classic WooCommerce form controls (My Account,
+   classic cart/checkout forms, shop ordering) and the single-product
+   variation + quantity controls. */
+.woocommerce div.product form.cart .variations select,
+.woocommerce div.product form.cart .quantity .qty,
+.woocommerce form.cart .quantity .qty,
+.woocommerce form input.input-text,
+.woocommerce form select,
+.woocommerce form textarea{
+  background-color:var(--bg-2);
+  color:var(--ink);
+  border:2px solid var(--purple);
+  border-radius:12px;
+  font:inherit;
+  font-size:1rem;
+  min-height:48px;
+  padding:10px 14px;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.45);
+}
+.woocommerce form input.input-text::placeholder,
+.woocommerce form textarea::placeholder{
+  color:var(--muted);
+  opacity:1;
+}
+
+/* Dropdowns: full-width on the product form, a real tap height, and a
+   cyan chevron in place of the browser's default arrow. */
+.woocommerce div.product form.cart .variations{width:100%}
+.woocommerce div.product form.cart .variations td.value{width:100%}
+.woocommerce div.product form.cart .variations select,
+.woocommerce form select{
+  -webkit-appearance:none;
+  appearance:none;
+  width:100%;
+  height:48px;
+  padding-right:42px;
+  cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%2300e5ff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 14px center;
+}
+.woocommerce div.product form.cart .reset_variations{
+  display:inline-block;
+  margin-top:8px;
+  color:var(--cyan);
+  font-weight:700;
+  font-size:.85rem;
+}
+
+/* Quantity: a compact box that lines up with the Add to Cart button. */
+.woocommerce .quantity .qty{
+  width:4.4em;
+  height:48px;
+  padding-left:6px;
+  padding-right:6px;
+  text-align:center;
+}
+
+/* Focus: swap the purple border for cyan with a soft neon glow. */
+.woocommerce div.product form.cart .variations select:focus,
+.woocommerce .quantity .qty:focus,
+.woocommerce form input.input-text:focus,
+.woocommerce form select:focus,
+.woocommerce form textarea:focus{
+  border-color:var(--cyan);
+  box-shadow:0 0 0 3px rgba(0,229,255,.25),inset 0 2px 5px rgba(0,0,0,.45);
+  outline:none;
+}
+
+/* Checkboxes and radios pick up the neon pink accent. */
+.woocommerce input[type="checkbox"],
+.woocommerce input[type="radio"]{
+  accent-color:var(--pink);
+  width:18px;
+  height:18px;
+  vertical-align:-3px;
+}
+
+/* Select2 dropdowns (classic address forms: country / state). */
+body .select2-container--default .select2-selection--single{
+  background-color:var(--bg-2);
+  border:2px solid var(--purple);
+  border-radius:12px;
+  height:48px;
+}
+body .select2-container--default .select2-selection--single .select2-selection__rendered{
+  color:var(--ink);
+  line-height:44px;
+  padding-left:14px;
+}
+body .select2-container--default .select2-selection--single .select2-selection__arrow{height:46px}
+body .select2-container--default .select2-selection--single .select2-selection__arrow b{border-color:var(--cyan) transparent transparent transparent}
+body .select2-dropdown{
+  background-color:var(--bg-2);
+  border:2px solid var(--purple);
+  border-radius:12px;
+  color:var(--ink);
+  overflow:hidden;
+}
+body .select2-container--default .select2-results__option--highlighted[aria-selected]{
+  background-color:var(--purple);
+  color:#fff;
+}
+body .select2-container--default .select2-search--dropdown .select2-search__field{
+  background-color:var(--bg);
+  color:var(--ink);
+  border:2px solid var(--purple);
+  border-radius:8px;
+}
+
+/* Checkout / cart blocks: the block stylesheet paints its fields
+   white with near-black text, and its floating labels all but vanish
+   on the dark theme. Recolor the surfaces only — the block keeps its
+   own padding and floating-label mechanics. */
+body .wc-block-components-text-input input,
+body textarea.wc-block-components-textarea{
+  background-color:var(--bg-2);
+  color:var(--ink);
+  border:2px solid var(--purple);
+  border-radius:12px;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.45);
+}
+body .wc-block-components-text-input input::placeholder,
+body textarea.wc-block-components-textarea::placeholder{
+  color:var(--muted);
+  opacity:1;
+}
+body .wc-block-components-text-input input:focus,
+body textarea.wc-block-components-textarea:focus{
+  border-color:var(--cyan);
+  box-shadow:0 0 0 3px rgba(0,229,255,.25),inset 0 2px 5px rgba(0,0,0,.45);
+  outline:none;
+}
+/* Errors stay errors, in a red that reads on the dark surface. */
+body .wc-block-components-text-input.has-error input{
+  border-color:#ff5470;
+}
+body .wc-block-components-validation-error{
+  color:#ff8fa3;
+}
+/* Block selects (country / state): the box lives on the container,
+   the select inside goes transparent so the two read as one field. */
+body .wc-blocks-components-select__container{
+  background-color:var(--bg-2);
+  border:2px solid var(--purple);
+  border-radius:12px;
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.45);
+}
+body .wc-blocks-components-select__select{
+  background-color:transparent;
+  color:var(--ink);
+  border:0;
+}
+body .wc-blocks-components-select__label{color:var(--muted)}
+body .wc-blocks-components-select__expand{fill:var(--cyan)}
+/* Block checkbox: same surface + border, pink when ticked. */
+body .wc-block-components-checkbox__input{
+  background-color:var(--bg-2);
+  border:2px solid var(--purple);
+  border-radius:6px;
+  accent-color:var(--pink);
+}
+body .wc-block-components-checkbox__mark{fill:var(--pink)}
